@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>安室RC役員アプリ</title>
-  <!-- PDF.js CDN (ブラウザ内PDF解析ライブラリ) -->
+  <!-- PDF.js CDN (PDF解析) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js CDN (画像OCR文字認識) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     // PDF.jsワーカーの設定
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -30,9 +32,17 @@
       background: linear-gradient(135deg, #ea580c 0%, #9a3412 100%);
       color: white; padding: 18px 20px; text-align: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
     }
     header h1 { font-size: 1.4rem; margin-bottom: 2px; }
     header p { font-size: 0.8rem; opacity: 0.9; }
+
+    /* バージョン表示（右上） */
+    .version-tag {
+      position: absolute; top: 12px; right: 16px;
+      font-size: 0.7rem; font-weight: bold; background: rgba(0, 0, 0, 0.25);
+      padding: 3px 8px; border-radius: 12px; letter-spacing: 0.5px; opacity: 0.9;
+    }
 
     /* ナビゲーションタブ */
     .nav-tabs {
@@ -60,17 +70,17 @@
 
     /* ドラッグ＆ドロップエリア */
     .dropzone {
-      border: 2px dashed var(--primary); border-radius: 8px; padding: 25px; text-align: center;
+      border: 2px dashed var(--primary); border-radius: 8px; padding: 22px; text-align: center;
       background: #fff7ed; cursor: pointer; transition: background 0.2s; margin-bottom: 12px;
     }
     .dropzone:hover { background: #ffedd5; }
     .dropzone input { display: none; }
 
-    .dropzone-pdf {
+    .dropzone-file {
       border: 2px dashed var(--accent);
       background: #f0f9ff;
     }
-    .dropzone-pdf:hover { background: #e0f2fe; }
+    .dropzone-file:hover { background: #e0f2fe; }
 
     /* テーブル */
     .table-container { overflow-x: auto; margin-top: 15px; }
@@ -123,7 +133,7 @@
     }
 
     @media print {
-      header, .nav-tabs, .dropzone, .btn-group, .no-print { display: none !important; }
+      header, .nav-tabs, .dropzone, .btn-group, .no-print, .version-tag { display: none !important; }
       body { background: white; color: black; padding: 0; }
       .card { border: none; box-shadow: none; padding: 0; }
     }
@@ -132,6 +142,7 @@
 <body>
 
   <header>
+    <div class="version-tag">ver 1.2.0</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 運営・帳票作成ツール</p>
   </header>
@@ -147,20 +158,21 @@
     <!-- タブ1: 大会要項読み込み ＆ らくらく連絡網 配信文作成 -->
     <div id="tab-rakuraku" class="tab-content active">
       
-      <!-- 要項ファイル／テキスト読み込みカード -->
+      <!-- 要項ファイル（PDF・画像）読み込みカード -->
       <div class="card">
-        <h2>📄 大会要項ファイルの読み込み・解析</h2>
+        <h2>📄 大会要項の読み込み（PDF・写真・画像対応）</h2>
         
-        <!-- PDFドラッグ＆ドロップゾーン -->
-        <div class="dropzone dropzone-pdf" id="pdf-dropzone" onclick="document.getElementById('pdf-input').click()">
-          <p>📑 <b>ここに大会要項PDFファイルをドラッグ＆ドロップ</b><br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてPDFファイルを選択</span></p>
-          <input type="file" id="pdf-input" accept=".pdf" onchange="handlePdfSelect(event)">
+        <!-- PDF / 画像ドラッグ＆ドロップゾーン -->
+        <div class="dropzone dropzone-file" id="file-dropzone" onclick="document.getElementById('youkou-file-input').click()">
+          <p>📑 <b>ここに要項ファイル（PDF または 写真画像）をドラッグ＆ドロップ</b><br>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">対応形式: PDF, JPG, PNG, WebP（スマホ撮影写真もOK）</span></p>
+          <input type="file" id="youkou-file-input" accept=".pdf, .png, .jpg, .jpeg, .webp" onchange="handleYoukouFileSelect(event)">
         </div>
 
-        <div style="text-align: center; margin: 10px 0; font-size: 0.8rem; color: var(--text-muted);">または 要項テキストを直接貼り付け</div>
+        <div style="text-align: center; margin: 8px 0; font-size: 0.8rem; color: var(--text-muted);">または 要項テキストを直接貼り付け</div>
 
         <div class="form-group">
-          <textarea id="youkou-text" rows="3" placeholder="PDFからコピーしたテキストを貼り付けて「要項を解析して反映」を押すこともできます..."></textarea>
+          <textarea id="youkou-text" rows="3" placeholder="テキストを貼り付けて「テキストから解析して反映」を押すこともできます..."></textarea>
         </div>
         <button class="btn btn-accent" onclick="parseYoukouText(document.getElementById('youkou-text').value)">⚡ テキストから解析して反映</button>
       </div>
@@ -205,7 +217,7 @@
         </p>
         <div class="dropzone" onclick="document.getElementById('csv-input').click()">
           <p>📄 ここに調整さんCSVファイルをドラッグ＆ドロップ<br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてファイルを選択</span></p>
-          <input type="file" id="csv-input" accept=".csv" onchange="handleFileSelect(event)">
+          <input type="file" id="csv-input" accept=".csv" onchange="handleCsvSelect(event)">
         </div>
       </div>
 
@@ -293,34 +305,65 @@
       document.getElementById(tabId).classList.add('active');
     }
 
-    // PDFファイルの読み込み・テキスト抽出処理
-    function handlePdfSelect(event) {
+    // 要項ファイル（PDF / 画像）の振り分け処理
+    function handleYoukouFileSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      showToast('PDFを解析中...');
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        parsePdfFile(file);
+      } else if (file.type.startsWith('image/')) {
+        parseImageFile(file);
+      } else {
+        alert('PDFまたは画像ファイル（JPG/PNG等）を選択してください。');
+      }
+    }
 
+    // PDFファイル解析 (PDF.js)
+    function parsePdfFile(file) {
+      showToast('PDFを解析中...');
       const reader = new FileReader();
       reader.onload = async function() {
         const typedarray = new Uint8Array(this.result);
         try {
           const pdf = await pdfjsLib.getDocument(typedarray).promise;
           let fullText = '';
-
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             const pageText = textContent.items.map(item => item.str).join(' ');
             fullText += pageText + '\n';
           }
-
           document.getElementById('youkou-text').value = fullText;
           parseYoukouText(fullText);
         } catch (err) {
-          alert('PDFの読み込みに失敗しました: ' + err.message);
+          alert('PDF解析に失敗しました: ' + err.message);
         }
       };
       reader.readAsArrayBuffer(file);
+    }
+
+    // 画像・写真ファイル解析 (Tesseract.js OCR)
+    async function parseImageFile(file) {
+      showToast('写真の文字を読み取り中（OCR解析）...');
+      try {
+        const result = await Tesseract.recognize(
+          file,
+          'jpn',
+          {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                showToast(`写真解析中... ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          }
+        );
+        const ocrText = result.data.text;
+        document.getElementById('youkou-text').value = ocrText;
+        parseYoukouText(ocrText);
+      } catch (err) {
+        alert('写真の文字認識に失敗しました: ' + err.message);
+      }
     }
 
     // 大会要項テキストの自動解析
@@ -441,11 +484,11 @@
       const toast = document.getElementById('toast');
       toast.innerText = msg;
       toast.style.opacity = '1';
-      setTimeout(() => toast.style.opacity = '0', 2200);
+      setTimeout(() => toast.style.opacity = '0', 2500);
     }
 
     // 調整さんCSV読込
-    function handleFileSelect(event) {
+    function handleCsvSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
 
