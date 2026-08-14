@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>安室RC役員アプリ</title>
+  <!-- PDF.js CDN (ブラウザ内PDF解析ライブラリ) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // PDF.jsワーカーの設定
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   <style>
     :root {
       --primary: #ea580c;
@@ -14,6 +20,7 @@
       --text-muted: #64748b;
       --border: #cbd5e1;
       --accent: #0284c7;
+      --accent-hover: #0369a1;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -54,10 +61,16 @@
     /* ドラッグ＆ドロップエリア */
     .dropzone {
       border: 2px dashed var(--primary); border-radius: 8px; padding: 25px; text-align: center;
-      background: #fff7ed; cursor: pointer; transition: background 0.2s;
+      background: #fff7ed; cursor: pointer; transition: background 0.2s; margin-bottom: 12px;
     }
     .dropzone:hover { background: #ffedd5; }
     .dropzone input { display: none; }
+
+    .dropzone-pdf {
+      border: 2px dashed var(--accent);
+      background: #f0f9ff;
+    }
+    .dropzone-pdf:hover { background: #e0f2fe; }
 
     /* テーブル */
     .table-container { overflow-x: auto; margin-top: 15px; }
@@ -79,7 +92,7 @@
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-accent { background: var(--accent); color: white; }
-    .btn-accent:hover { background: #0369a1; }
+    .btn-accent:hover { background: var(--accent-hover); }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
     .btn-secondary:hover { background: #cbd5e1; }
 
@@ -134,16 +147,22 @@
     <!-- タブ1: 大会要項読み込み ＆ らくらく連絡網 配信文作成 -->
     <div id="tab-rakuraku" class="tab-content active">
       
-      <!-- 要項読み込み自動抽出カード -->
+      <!-- 要項ファイル／テキスト読み込みカード -->
       <div class="card">
-        <h2>📄 大会要項テキストの読み込み（自動抽出）</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-          大会要項PDFの本文テキストをコピーして貼り付けると、「大会名・日時・場所・種目・参加費」を自動抽出します。
-        </p>
-        <div class="form-group">
-          <textarea id="youkou-text" rows="4" placeholder="ここに大会要項の文章を貼り付けて「要項を解析して反映」を押してください..."></textarea>
+        <h2>📄 大会要項ファイルの読み込み・解析</h2>
+        
+        <!-- PDFドラッグ＆ドロップゾーン -->
+        <div class="dropzone dropzone-pdf" id="pdf-dropzone" onclick="document.getElementById('pdf-input').click()">
+          <p>📑 <b>ここに大会要項PDFファイルをドラッグ＆ドロップ</b><br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてPDFファイルを選択</span></p>
+          <input type="file" id="pdf-input" accept=".pdf" onchange="handlePdfSelect(event)">
         </div>
-        <button class="btn btn-accent" onclick="parseYoukouText()">⚡ 要項を解析して反映</button>
+
+        <div style="text-align: center; margin: 10px 0; font-size: 0.8rem; color: var(--text-muted);">または 要項テキストを直接貼り付け</div>
+
+        <div class="form-group">
+          <textarea id="youkou-text" rows="3" placeholder="PDFからコピーしたテキストを貼り付けて「要項を解析して反映」を押すこともできます..."></textarea>
+        </div>
+        <button class="btn btn-accent" onclick="parseYoukouText(document.getElementById('youkou-text').value)">⚡ テキストから解析して反映</button>
       </div>
 
       <!-- 配信文作成フォーム -->
@@ -274,33 +293,62 @@
       document.getElementById(tabId).classList.add('active');
     }
 
+    // PDFファイルの読み込み・テキスト抽出処理
+    function handlePdfSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      showToast('PDFを解析中...');
+
+      const reader = new FileReader();
+      reader.onload = async function() {
+        const typedarray = new Uint8Array(this.result);
+        try {
+          const pdf = await pdfjsLib.getDocument(typedarray).promise;
+          let fullText = '';
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+          }
+
+          document.getElementById('youkou-text').value = fullText;
+          parseYoukouText(fullText);
+        } catch (err) {
+          alert('PDFの読み込みに失敗しました: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
     // 大会要項テキストの自動解析
-    function parseYoukouText() {
-      const text = document.getElementById('youkou-text').value;
-      if (!text.trim()) {
-        alert('要項テキストを貼り付けてください。');
+    function parseYoukouText(text) {
+      if (!text || !text.trim()) {
+        alert('解析する要項テキストがありません。');
         return;
       }
 
-      // 大会名の抽出
-      const titleMatch = text.match(/(第[0-9０-９]+回[^\n]+大会|[^\n]+記録会|[^\n]+陸上競技大会)/);
+      // 1. 大会名の抽出
+      const titleMatch = text.match(/(第[0-9０-９]+回[^\n\r]+大会|[^\n\r]+記録会|[^\n\r]+陸上競技大会|[^\n\r]+マラソン)/);
       if (titleMatch && document.getElementById('inp-event')) {
-        document.getElementById('inp-event').value = titleMatch[0].trim();
+        document.getElementById('inp-event').value = titleMatch[0].trim().replace(/\s+/g, ' ');
       }
 
-      // 日時の抽出
-      const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n]*)/);
+      // 2. 日時の抽出
+      const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
       if (dateMatch && document.getElementById('inp-date')) {
-        document.getElementById('inp-date').value = dateMatch[0].trim();
+        document.getElementById('inp-date').value = dateMatch[0].trim().replace(/\s+/g, ' ');
       }
 
-      // 場所の抽出
-      const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n]*|姫路市陸上競技場|[^\n]+競技場)/);
+      // 3. 場所の抽出
+      const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場|[^\n\r]+スタジアム)/);
       if (placeMatch && document.getElementById('inp-place')) {
-        document.getElementById('inp-place').value = placeMatch[0].trim();
+        document.getElementById('inp-place').value = placeMatch[0].trim().replace(/\s+/g, ' ');
       }
 
-      // 参加料の抽出
+      // 4. 参加料の抽出
       const feeMatch = text.match(/([0-9０-９,]+円)/);
       if (feeMatch && document.getElementById('inp-fee')) {
         document.getElementById('inp-fee').value = feeMatch[0].trim();
