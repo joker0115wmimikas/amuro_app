@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>安室RC 統合運営コックピット</title>
+  <title>安室RC役員アプリ</title>
   <style>
     :root {
-      --primary: #f97316;
-      --primary-hover: #ea580c;
+      --primary: #ea580c;
+      --primary-hover: #c2410c;
       --bg: #f8fafc;
       --card-bg: #ffffff;
       --text: #1e293b;
       --text-muted: #64748b;
-      --border: #e2e8f0;
-      --success: #22c55e;
+      --border: #cbd5e1;
+      --accent: #0284c7;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 50px; }
 
     header {
-      background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
-      color: white; padding: 20px; text-align: center;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      background: linear-gradient(135deg, #ea580c 0%, #9a3412 100%);
+      color: white; padding: 18px 20px; text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    header h1 { font-size: 1.5rem; margin-bottom: 4px; }
-    header p { font-size: 0.85rem; opacity: 0.9; }
+    header h1 { font-size: 1.4rem; margin-bottom: 2px; }
+    header p { font-size: 0.8rem; opacity: 0.9; }
 
     /* ナビゲーションタブ */
     .nav-tabs {
@@ -33,27 +33,27 @@
       border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
     }
     .tab-btn {
-      padding: 14px 20px; border: none; background: none; font-size: 0.95rem; font-weight: bold;
+      padding: 12px 18px; border: none; background: none; font-size: 0.9rem; font-weight: bold;
       color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
     }
     .tab-btn:hover { color: var(--primary); }
-    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #fff7ed; }
 
     /* コンテナ */
-    .container { max-width: 1000px; margin: 20px auto; padding: 0 16px; }
+    .container { max-width: 960px; margin: 20px auto; padding: 0 16px; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
     /* カード */
     .card {
-      background: var(--card-bg); border-radius: 12px; padding: 20px;
+      background: var(--card-bg); border-radius: 10px; padding: 20px;
       border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
     }
-    .card h2 { font-size: 1.15rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
 
     /* ドラッグ＆ドロップエリア */
     .dropzone {
-      border: 2px dashed var(--primary); border-radius: 8px; padding: 30px; text-align: center;
+      border: 2px dashed var(--primary); border-radius: 8px; padding: 25px; text-align: center;
       background: #fff7ed; cursor: pointer; transition: background 0.2s;
     }
     .dropzone:hover { background: #ffedd5; }
@@ -61,55 +61,57 @@
 
     /* テーブル */
     .table-container { overflow-x: auto; margin-top: 15px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
     th { background: #f1f5f9; font-weight: bold; }
     tr:nth-child(even) { background: #f8fafc; }
 
     /* バッジ・ボタン */
-    .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
+    .badge { padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
     .badge-orange { background: #ffedd5; color: #c2410c; }
     .badge-green { background: #dcfce7; color: #15803d; }
     .badge-gray { background: #f1f5f9; color: #475569; }
 
     .btn {
-      padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
-      font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;
+      padding: 9px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+      font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;
     }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-hover); }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-accent:hover { background: #0369a1; }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
     .btn-secondary:hover { background: #cbd5e1; }
 
     /* フォーム群 */
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; color: var(--text-muted); }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; color: var(--text-muted); }
     .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem;
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;
     }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     /* プレビューエリア */
     .preview-box {
-      background: #1e293b; color: #f8fafc; padding: 16px; border-radius: 8px;
-      font-family: monospace; white-space: pre-wrap; font-size: 0.9rem; max-height: 400px; overflow-y: auto;
+      background: #0f172a; color: #f8fafc; padding: 14px; border-radius: 6px;
+      font-family: monospace; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.5; max-height: 400px; overflow-y: auto;
     }
 
     /* 統計カード */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
-    .stat-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
-    .stat-card .num { font-size: 1.4rem; font-weight: bold; color: var(--primary); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .stat-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; }
+    .stat-card .num { font-size: 1.3rem; font-weight: bold; color: var(--primary); }
     .stat-card .label { font-size: 0.75rem; color: var(--text-muted); }
 
     /* トースト通知 */
     #toast {
-      position: fixed; bottom: 20px; right: 20px; background: #333; color: white;
-      padding: 12px 20px; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;
+      position: fixed; bottom: 20px; right: 20px; background: #1e293b; color: white;
+      padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;
     }
 
     @media print {
       header, .nav-tabs, .dropzone, .btn-group, .no-print { display: none !important; }
-      body { background: white; color: black; }
+      body { background: white; color: black; padding: 0; }
       .card { border: none; box-shadow: none; padding: 0; }
     }
   </style>
@@ -117,22 +119,71 @@
 <body>
 
   <header>
-    <h1>🏃 安室RC 統合運営コックピット</h1>
-    <p>安室ランニングクラブ クラブ運営・自動化ツール</p>
+    <h1>🏃 安室RC役員アプリ</h1>
+    <p>安室ランニングクラブ 運営・帳票作成ツール</p>
   </header>
 
   <nav class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-entry')">📋 1. エントリーリスト・調整さん解析</button>
-    <button class="tab-btn" onclick="switchTab('tab-rakuraku')">📩 2. らくらく連絡網 配信文作成</button>
-    <button class="tab-btn" onclick="switchTab('tab-master')">👤 3. 選手マスター</button>
+    <button class="tab-btn active" onclick="switchTab(event, 'tab-rakuraku')">📩 1. 要項読込 ➔ 連絡網案内文作成</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tab-entry')">📋 2. 調整さん集計 ➔ 確定リスト作成</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tab-master')">👤 3. 選手マスター</button>
   </nav>
 
   <div class="container">
 
-    <!-- タブ1: エントリーリスト・調整さん解析 -->
-    <div id="tab-entry" class="tab-content active">
+    <!-- タブ1: 大会要項読み込み ＆ らくらく連絡網 配信文作成 -->
+    <div id="tab-rakuraku" class="tab-content active">
+      
+      <!-- 要項読み込み自動抽出カード -->
+      <div class="card">
+        <h2>📄 大会要項テキストの読み込み（自動抽出）</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+          大会要項PDFの本文テキストをコピーして貼り付けると、「大会名・日時・場所・種目・参加費」を自動抽出します。
+        </p>
+        <div class="form-group">
+          <textarea id="youkou-text" rows="4" placeholder="ここに大会要項の文章を貼り付けて「要項を解析して反映」を押してください..."></textarea>
+        </div>
+        <button class="btn btn-accent" onclick="parseYoukouText()">⚡ 要項を解析して反映</button>
+      </div>
+
+      <!-- 配信文作成フォーム -->
+      <div class="card">
+        <h2>📩 らくらく連絡網 配信文作成</h2>
+
+        <div class="form-group">
+          <label>配信シーン選択</label>
+          <select id="tpl-select" onchange="updateTemplateForm()">
+            <option value="募集">【大会案内】調整さん募集案内（標準）</option>
+            <option value="前日">【大会前日】応援タイテ・集合・欠場届案内</option>
+            <option value="当日席">【大会当日朝】観覧場所・場所取り案内</option>
+            <option value="リザルト">【大会終了後】ねぎらい・リザルト速報共有</option>
+            <option value="練習中止">【練習変更】雨天中止・自宅トレーニング案内</option>
+            <option value="夏合宿">【イベント】夏季強化合宿の詳細案内</option>
+          </select>
+        </div>
+
+        <div id="dynamic-inputs"></div>
+
+        <button class="btn btn-primary" onclick="generateMessage()" style="width: 100%; margin-top: 12px;">✨ 配信本文を生成</button>
+      </div>
+
+      <!-- プレビューカード -->
+      <div class="card" id="preview-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2>📱 らくらく連絡網 配信本文プレビュー</h2>
+          <button class="btn btn-primary" onclick="copyMessage()">📋 本文をコピー</button>
+        </div>
+        <div class="preview-box" id="message-preview"></div>
+      </div>
+    </div>
+
+    <!-- タブ2: 調整さん集計 ＆ 確定リスト作成 -->
+    <div id="tab-entry" class="tab-content">
       <div class="card no-print">
-        <h2>📁 調整さんCSVファイルの読み込み</h2>
+        <h2>📁 調整さん集計CSVの読み込み</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+          調整さんからダウンロードした出欠CSVファイルを放り込むだけで、学年順・種目別に整理した確定リストを作成します。
+        </p>
         <div class="dropzone" onclick="document.getElementById('csv-input').click()">
           <p>📄 ここに調整さんCSVファイルをドラッグ＆ドロップ<br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてファイルを選択</span></p>
           <input type="file" id="csv-input" accept=".csv" onchange="handleFileSelect(event)">
@@ -140,7 +191,7 @@
       </div>
 
       <div class="card" id="entry-result-card" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;" class="no-print">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;" class="no-print">
           <h2 id="event-title">確定エントリーリスト</h2>
           <div class="btn-group">
             <button class="btn btn-primary" onclick="window.print()">🖨️ A4印刷 / PDF出力</button>
@@ -170,45 +221,12 @@
       </div>
     </div>
 
-    <!-- タブ2: らくらく連絡網 配信文作成 -->
-    <div id="tab-rakuraku" class="tab-content">
-      <div class="card">
-        <h2>📩 らくらく連絡網 テンプレート作成</h2>
-
-        <div class="form-group">
-          <label>配信テンプレート選択</label>
-          <select id="tpl-select" onchange="updateTemplateForm()">
-            <option value="募集">【大会案内】調整さん募集案内</option>
-            <option value="前日">【大会前日】応援タイテ・集合・欠場届案内</option>
-            <option value="当日席">【大会当日朝】観覧場所・場所取り案内</option>
-            <option value="リザルト">【大会終了後】ねぎらい・リザルト速報共有</option>
-            <option value="練習中止">【練習変更】雨天中止・自宅トレーニング案内</option>
-            <option value="夏合宿">【イベント】夏季強化合宿の詳細案内</option>
-          </select>
-        </div>
-
-        <div id="dynamic-inputs"></div>
-
-        <button class="btn btn-primary" onclick="generateMessage()" style="width: 100%; margin-top: 10px;">✨ 配信本文を生成</button>
-      </div>
-
-      <div class="card" id="preview-card" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h2>📱 配信本文プレビュー</h2>
-          <button class="btn btn-primary" onclick="copyMessage()">📋 本文をコピー</button>
-        </div>
-        <div class="preview-box" id="message-preview"></div>
-      </div>
-    </div>
-
     <!-- タブ3: 選手マスター -->
     <div id="tab-master" class="tab-content">
       <div class="card">
         <h2>👤 安室RC 登録選手一覧（マスター）</h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">※調整さん読込時の名前照合や学年自動補正に使用されます。</p>
-
         <div class="table-container">
-          <table id="master-table">
+          <table>
             <thead>
               <tr>
                 <th>学年</th>
@@ -235,7 +253,6 @@
               <tr><td>5年</td><td>片山 凱翔</td><td>荒川小学校</td><td>-</td></tr>
               <tr><td>5年</td><td>山田 佳澄</td><td>船場小学校</td><td>-</td></tr>
               <tr><td>4年</td><td>浪花 英里</td><td>-</td><td>-</td></tr>
-              <tr><td>1年</td><td>西井 結来乃</td><td>糸引小学校</td><td>短距離希望</td></tr>
               <tr><td>2年</td><td>木村 奈緒子</td><td>高浜小学校</td><td>ナッツ・生卵アレルギー</td></tr>
             </tbody>
           </table>
@@ -249,15 +266,137 @@
 
   <script>
     // タブ切り替え
-    function switchTab(tabId) {
+    function switchTab(evt, tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       
-      event.currentTarget.classList.add('active');
+      evt.currentTarget.classList.add('active');
       document.getElementById(tabId).classList.add('active');
     }
 
-    // CSV読込処理
+    // 大会要項テキストの自動解析
+    function parseYoukouText() {
+      const text = document.getElementById('youkou-text').value;
+      if (!text.trim()) {
+        alert('要項テキストを貼り付けてください。');
+        return;
+      }
+
+      // 大会名の抽出
+      const titleMatch = text.match(/(第[0-9０-９]+回[^\n]+大会|[^\n]+記録会|[^\n]+陸上競技大会)/);
+      if (titleMatch && document.getElementById('inp-event')) {
+        document.getElementById('inp-event').value = titleMatch[0].trim();
+      }
+
+      // 日時の抽出
+      const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n]*)/);
+      if (dateMatch && document.getElementById('inp-date')) {
+        document.getElementById('inp-date').value = dateMatch[0].trim();
+      }
+
+      // 場所の抽出
+      const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n]*|姫路市陸上競技場|[^\n]+競技場)/);
+      if (placeMatch && document.getElementById('inp-place')) {
+        document.getElementById('inp-place').value = placeMatch[0].trim();
+      }
+
+      // 参加料の抽出
+      const feeMatch = text.match(/([0-9０-９,]+円)/);
+      if (feeMatch && document.getElementById('inp-fee')) {
+        document.getElementById('inp-fee').value = feeMatch[0].trim();
+      }
+
+      showToast('要項から情報を抽出してフォームに反映しました！');
+    }
+
+    // テンプレートフォームの切り替え
+    function updateTemplateForm() {
+      const type = document.getElementById('tpl-select').value;
+      const container = document.getElementById('dynamic-inputs');
+      container.innerHTML = '';
+
+      if (type === '募集') {
+        container.innerHTML = `
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="令和8年度第1回三木小学生長距離記録会"></div>
+          <div class="form-row">
+            <div class="form-group"><label>開催日時</label><input id="inp-date" value="2026年5月6日（水・休） 競技開始10:00予定"></div>
+            <div class="form-group"><label>参加費</label><input id="inp-fee" value="600円"></div>
+          </div>
+          <div class="form-group"><label>開催場所</label><input id="inp-place" value="三木総合防災公園第一陸上競技場（現地集合・解散）"></div>
+          <div class="form-group"><label>競技種目・対象</label><input id="inp-items" value="男子800m（2年）、男子1500m（3～6年）、女子800m（2～6年）"></div>
+          <div class="form-group"><label>役員が作成した調整さんURL</label><input id="inp-url" value="https://chouseisan.com/s/..."></div>
+          <div class="form-group"><label>安室RC申込締切</label><input id="inp-limit" value="4月11日（土）練習終了時まで"></div>
+        `;
+      } else if (type === '前日') {
+        container.innerHTML = `
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="兵庫県小学生陸上競技春季記録会"></div>
+          <div class="form-group"><label>集合時間・場所</label><input id="inp-time" value="7時30分 集合（サブトラ 時計の下あたり）"></div>
+          <div class="form-group"><label>ゼッケン規定</label><input id="inp-bib" value="横24cm×縦16cm（男子:黒字 / 女子:赤字）、安全ピン8本"></div>
+        `;
+      } else if (type === '当日席') {
+        container.innerHTML = `
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="兵庫県小学生陸上競技大会"></div>
+          <div class="form-group"><label>観覧・待機場所</label><input id="inp-seat" value="メインスタンド上側、Cゲート入場後 ⑦あたり"></div>
+        `;
+      } else if (type === 'リザルト') {
+        container.innerHTML = `
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="小学生長距離記録会IN三木"></div>
+          <div class="form-group"><label>ねぎらいの言葉・天候など</label><input id="inp-comment" value="本日は朝早くからのご参加、本当にお疲れ様でした！"></div>
+        `;
+      } else if (type === '練習中止') {
+        container.innerHTML = `
+          <div class="form-group"><label>中止理由・天候</label><input id="inp-reason" value="雨天のため（練習時間にかけて強まる予報のため）"></div>
+          <div class="form-group"><label>自宅トレーニング指示</label><input id="inp-menu" value="各自、自宅で補強、体幹トレーニング、ストレッチを行ってください。"></div>
+        `;
+      } else if (type === '夏合宿') {
+        container.innerHTML = `
+          <div class="form-group"><label>合宿日程</label><input id="inp-date" value="8月8日(土)〜9日(日)"></div>
+          <div class="form-group"><label>参加費（小学生1人）</label><input id="inp-fee" value="9,000円"></div>
+          <div class="form-group"><label>初日朝集合</label><input id="inp-time1" value="06:30 集合（06:45〜 公園ゴミ拾い ➔ 07:00〜 午前練習・集金）"></div>
+          <div class="form-group"><label>重要持ち物</label><input id="inp-items" value="アイシング用氷柱（牛乳パック凍結）、2日目カレーの補食（おにぎり等）、室内シューズ"></div>
+        `;
+      }
+    }
+
+    // 配信文テキストの組み立て
+    function generateMessage() {
+      const type = document.getElementById('tpl-select').value;
+      let msg = '';
+
+      if (type === '募集') {
+        msg = `皆様\n\n早速ですが、下記の記録会への参加者を募集します。ご参加をお待ちしています。\n「調整さん」にて申込をお願いします。\n\n✅日時：${document.getElementById('inp-date').value}\n\n✅場所：${document.getElementById('inp-place').value}\n\n✅競技種目：${document.getElementById('inp-items').value}\n\n✅参加料：${document.getElementById('inp-fee').value}\n※参加料は、練習時に役員まで手渡し下さい。お釣りの無いようにお準備願います。\n※出来る限り、所属学校からの出場をお願いします。\n\n✅申込方法：調整さん（下記リンク）\n${document.getElementById('inp-url').value}\n\n✅申込期限：${document.getElementById('inp-limit').value}\n\nご質問等ありましたら、amuro.rc@gmail.com までご連絡ください。\n\n久保`;
+      } else if (type === '前日') {
+        msg = `${document.getElementById('inp-event').value}に参加の皆様\n\nいよいよ明日に迫りました同大会ですが、コンディションはいかがでしょうか？\n\n✅集合時間・場所：${document.getElementById('inp-time').value}\n※全員集合・アップを行います。用事等で早く帰られる方は役員に一言お声掛けください。\n\n✅ゼッケン（アスリートビブス）：${document.getElementById('inp-bib').value}\n※安室RCゼッケン番号：470\n\nケガや体調不良については無理をせず、お子様の体調を最優先に判断されてください。\nまた、欠場される際に「欠場届」が必要な場合は、早めに役員までご連絡ください。\n\n久保`;
+      } else if (type === '当日席') {
+        msg = `${document.getElementById('inp-event').value} 参加の皆様\n\n本日の観覧場所（場所取り）についてご案内します。\n\n✅観覧場所：${document.getElementById('inp-seat').value}\n\nお気をつけてお越しください！\n\n久保`;
+      } else if (type === 'リザルト') {
+        msg = `${document.getElementById('inp-event').value}に参加の皆様\n\n${document.getElementById('inp-comment').value}\n\n本日作成いたしましたリザルト（結果表）を添付いたしますのでご確認ください。\n\nアスリートビブス（ゼッケン）をご提供・ご協力いただきありがとうございました。\n今後ともよろしくお願いいたします！\n\n久保`;
+      } else if (type === '練習中止') {
+        msg = `皆様\n\n本日の練習について。\n\n${document.getElementById('inp-reason').value}、本日の練習はお休みとさせていただきます。\n\n${document.getElementById('inp-menu').value}\n\n来週、元気にお会いしましょう！\n\n久保`;
+      } else if (type === '夏合宿') {
+        msg = `夏合宿に参加の皆様\n\nいよいよ${document.getElementById('inp-date').value}に迫りました「夏季強化合宿」の詳細をご案内いたします。\n\n1. 集合について\n${document.getElementById('inp-time1').value}\n\n2. 集金について\n金額：小学生1人 ${document.getElementById('inp-fee').value}（朝練習時に集金・お釣りなし）\n\n3. 準備物・持ち物\n${document.getElementById('inp-items').value}\n\n安全で実りある合宿となるよう、ご協力をお願いいたします。\n\n安室RC 父母の会 / 役員一同`;
+      }
+
+      document.getElementById('message-preview').innerText = msg;
+      document.getElementById('preview-card').style.display = 'block';
+    }
+
+    // クリップボードコピー
+    function copyMessage() {
+      const text = document.getElementById('message-preview').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('配信本文をコピーしました！');
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.opacity = '1';
+      setTimeout(() => toast.style.opacity = '0', 2200);
+    }
+
+    // 調整さんCSV読込
     function handleFileSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -283,7 +422,7 @@
       }
 
       if (headerIdx === -1) {
-        alert('CSV内に「参加者」または「日程」のヘッダーが見つかりませんでした。');
+        alert('CSV内に「参加者」ヘッダーが見つかりませんでした。');
         return;
       }
 
@@ -297,9 +436,8 @@
         const rawName = cols[0];
         if (!rawName || rawName === 'コメント') continue;
 
-        // 学年と名前の分解
         const gradeMatch = rawName.match(/^([1-6１-６年]+)\s*(.+)$/);
-        const grade = gradeMatch ? gradeMatch[1].replace('１','1').replace('２','2').replace('３','3').replace('４','4').replace('５','5').replace('６','6') : '-';
+        const grade = gradeMatch ? gradeMatch[1].replace(/[１-６]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)) : '-';
         const name = gradeMatch ? gradeMatch[2] : rawName;
 
         const events = [];
@@ -324,7 +462,7 @@
         }
       }
 
-      // 学年順にソート (6年 -> 1年)
+      // 学年順ソート (6年 -> 1年)
       parsedData.sort((a, b) => b.grade.localeCompare(a.grade));
 
       renderEntryTable(parsedData, filename, schoolCount);
@@ -351,62 +489,6 @@
       document.getElementById('stat-school').innerText = `${schoolCount}名`;
       document.getElementById('event-title').innerText = `確定エントリーリスト (${filename.replace('.csv','')})`;
       document.getElementById('entry-result-card').style.display = 'block';
-    }
-
-    // テンプレートフォームの生成
-    function updateTemplateForm() {
-      const type = document.getElementById('tpl-select').value;
-      const container = document.getElementById('dynamic-inputs');
-      container.innerHTML = '';
-
-      if (type === '募集') {
-        container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="令和8年度第1回三木小学生長距離記録会"></div>
-          <div class="form-row">
-            <div class="form-group"><label>開催日時</label><input id="inp-date" value="2026年5月6日（水・休） 競技開始10:00予定"></div>
-            <div class="form-group"><label>参加費</label><input id="inp-fee" value="600円"></div>
-          </div>
-          <div class="form-group"><label>開催場所</label><input id="inp-place" value="三木総合防災公園第一陸上競技場（現地集合・解散）"></div>
-          <div class="form-group"><label>調整さんURL</label><input id="inp-url" value="https://chouseisan.com/s/..."></div>
-          <div class="form-group"><label>申込期限</label><input id="inp-limit" value="4月11日（土）"></div>
-        `;
-      } else if (type === '前日') {
-        container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="兵庫県小学生陸上競技春季記録会"></div>
-          <div class="form-group"><label>集合時間・場所</label><input id="inp-time" value="7時30分 集合（サブトラ 時計の下あたり）"></div>
-          <div class="form-group"><label>ゼッケン規定</label><input id="inp-bib" value="横24cm×縦16cm（男子:黒字 / 女子:赤字）、安全ピン8本"></div>
-        `;
-      } else if (type === '練習中止') {
-        container.innerHTML = `
-          <div class="form-group"><label>中止理由・天候</label><input id="inp-reason" value="雨天のため（練習時間にかけて強まる予報のため）"></div>
-          <div class="form-group"><label>自主トレ指示</label><input id="inp-menu" value="各自、自宅で補強、体幹トレーニング、ストレッチを行ってください。"></div>
-        `;
-      }
-    }
-
-    function generateMessage() {
-      const type = document.getElementById('tpl-select').value;
-      let msg = '';
-
-      if (type === '募集') {
-        msg = `皆様\n\n早速ですが、下記の記録会への参加者を募集します。ご参加をお待ちしています。\n「調整さん」にて申込をお願いします。\n\n✅日時：${document.getElementById('inp-date').value}\n\n✅場所：${document.getElementById('inp-place').value}\n\n✅参加料：${document.getElementById('inp-fee').value}\n※参加料は、練習時に役員まで手渡し下さい。お釣りの無いようにお準備願います。\n\n✅申込方法：調整さん（下記リンク）\n${document.getElementById('inp-url').value}\n\n✅申込期限：${document.getElementById('inp-limit').value}\n\n久保`;
-      } else if (type === '前日') {
-        msg = `${document.getElementById('inp-event').value}に参加の皆様\n\nいよいよ明日に迫りました同記録会ですが、コンディションはいかがでしょうか？\n\n✅集合時間・場所：${document.getElementById('inp-time').value}\n\n✅ゼッケン規定：${document.getElementById('inp-bib').value}\n\nケガや体調不良については無理をせず、お子様の体調を最優先に判断されてください。\nまた、欠場される際に「欠場届」が必要な場合は、早めに役員までご連絡ください。\n\n久保`;
-      } else if (type === '練習中止') {
-        msg = `皆様\n\n本日の練習について。\n\n${document.getElementById('inp-reason').value}、本日の練習はお休みとさせていただきます。\n\n${document.getElementById('inp-menu').value}\n\n来週、元気にお会いしましょう！\n\n久保`;
-      }
-
-      document.getElementById('message-preview').innerText = msg;
-      document.getElementById('preview-card').style.display = 'block';
-    }
-
-    function copyMessage() {
-      const text = document.getElementById('message-preview').innerText;
-      navigator.clipboard.writeText(text).then(() => {
-        const toast = document.getElementById('toast');
-        toast.style.opacity = '1';
-        setTimeout(() => toast.style.opacity = '0', 2000);
-      });
     }
 
     // 初期化
