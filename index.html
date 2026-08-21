@@ -43,6 +43,16 @@
       padding: 3px 8px; border-radius: 12px; letter-spacing: 0.5px; opacity: 0.9;
     }
 
+    /* 大会選択バー */
+    .event-selector-bar {
+      background: #334155; color: white; padding: 10px 16px; display: flex;
+      justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.85rem;
+    }
+    .event-selector-bar select {
+      padding: 6px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a;
+      color: white; font-weight: bold; font-size: 0.85rem; max-width: 320px; outline: none;
+    }
+
     /* メインナビ */
     .nav-tabs {
       display: flex; justify-content: center; background: white;
@@ -65,7 +75,7 @@
     }
     .card h2 { font-size: 1.05rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
 
-    /* データ投入グリッド（4つの投入枠） */
+    /* データ投入グリッド */
     .drop-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 15px;
     }
@@ -139,7 +149,7 @@
     .badge-gray { background: #f1f5f9; color: #475569; }
 
     .btn {
-      padding: 9px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+      padding: 8px 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
       font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;
     }
     .btn-primary { background: var(--primary); color: white; }
@@ -148,6 +158,8 @@
     .btn-accent:hover { background: var(--accent-hover); }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
     .btn-secondary:hover { background: #cbd5e1; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
     .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
 
     .form-group { margin-bottom: 12px; }
@@ -168,7 +180,7 @@
     }
 
     @media print {
-      header, .nav-tabs, .sub-tabs, .drop-grid, .btn-group, .no-print, .version-tag, .options-panel { display: none !important; }
+      header, .event-selector-bar, .nav-tabs, .sub-tabs, .drop-grid, .btn-group, .no-print, .version-tag, .options-panel { display: none !important; }
       body { background: white; color: black; padding: 0; }
       .container { max-width: 100%; margin: 0; padding: 0; }
       .card { border: none; box-shadow: none; padding: 0; margin-bottom: 0; }
@@ -181,12 +193,22 @@
 <body>
 
   <header>
-    <div class="version-tag">ver 1.4.0</div>
+    <div class="version-tag">ver 1.5.0</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
   </header>
 
-  <nav class="nav-tabs">
+  <!-- 大会選択・管理バー -->
+  <div class="event-selector-bar no-print">
+    <span>🏆 進行中の大会:</span>
+    <select id="event-select" onchange="changeActiveEvent()">
+      <!-- 動的生成 -->
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="createNewEvent()">➕ 新規大会を作成</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ この大会を削除</button>
+  </div>
+
+  <nav class="nav-tabs no-print">
     <button class="tab-btn active" onclick="switchMainTab(event, 'tab-hub')">🏁 1. 大会運営ハブ（一括読込＆出力）</button>
     <button class="tab-btn" onclick="switchMainTab(event, 'tab-master')">👤 2. 選手マスター</button>
   </nav>
@@ -198,7 +220,7 @@
       
       <!-- レイヤー1: データ一括投入エリア -->
       <div class="card no-print">
-        <h2>📁 STEP 1: 大会関連ファイルの一括投入（ドラッグ＆ドロップ）</h2>
+        <h2>📁 STEP 1: 大会関連ファイルの投入（何週間またいでも後から追加OK）</h2>
         <div class="drop-grid">
           <!-- ① 要項 -->
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
@@ -264,7 +286,7 @@
             </div>
             <div class="form-group">
               <label>発信役員名（署名）</label>
-              <input id="inp-sender" value="久保" placeholder="例: 久保、桝本、山道" oninput="saveSenderName()">
+              <input id="inp-sender" value="久保" placeholder="例: 久保、桝本、山道" oninput="saveCurrentEventData()">
             </div>
           </div>
 
@@ -288,11 +310,11 @@
           <div class="form-row">
             <div class="form-group">
               <label>大会名（PDF上部に印字）</label>
-              <input id="custom-event-title" placeholder="例: 第45回姫路市小学生陸上競技大会" oninput="updatePrintHeader()">
+              <input id="custom-event-title" placeholder="例: 第45回姫路市小学生陸上競技大会" oninput="saveCurrentEventData(); updatePrintHeader();">
             </div>
             <div class="form-group">
               <label>リレー希望列の表示</label>
-              <select id="relay-col-mode" onchange="reRenderCurrentTable()">
+              <select id="relay-col-mode" onchange="saveCurrentEventData(); reRenderCurrentTable();">
                 <option value="auto">自動判定 (CSV内にリレーがあれば表示)</option>
                 <option value="show">常に表示する</option>
                 <option value="hide">表示しない</option>
@@ -354,11 +376,11 @@
           <div class="form-row">
             <div class="form-group">
               <label>大会名</label>
-              <input id="tt-event-title" value="第50回兵庫県小学生陸上競技大会" oninput="updateTimeTablePrint()">
+              <input id="tt-event-title" value="第50回兵庫県小学生陸上競技大会" oninput="saveCurrentEventData(); updateTimeTablePrint();">
             </div>
             <div class="form-group">
               <label>ヘッダー冠名</label>
-              <input id="tt-org-name" value="安室RC" oninput="updateTimeTablePrint()">
+              <input id="tt-org-name" value="安室RC" oninput="saveCurrentEventData(); updateTimeTablePrint();">
             </div>
           </div>
 
@@ -379,36 +401,11 @@
                   <th style="width: 5%;">操作</th>
                 </tr>
               </thead>
-              <tbody id="tt-edit-tbody">
-                <tr>
-                  <td><input value="09:15" class="tt-time"></td>
-                  <td><input value="低学年女子4×100m" class="tt-event"></td>
-                  <td><input value="予選" class="tt-type"></td>
-                  <td><input value="[1組9L] 山田佳澄, 山内彩生, 寺崎真心, 浪花英里" class="tt-players"></td>
-                  <td><input value="08:50~09:00" class="tt-call"></td>
-                  <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateTimeTablePrint();">×</button></td>
-                </tr>
-                <tr>
-                  <td><input value="09:40" class="tt-time"></td>
-                  <td><input value="6年女子100m" class="tt-event"></td>
-                  <td><input value="予選" class="tt-type"></td>
-                  <td><input value="岩崎結菜(5組7L), 桝本紗那(7組3L)" class="tt-players"></td>
-                  <td><input value="09:15~09:25" class="tt-call"></td>
-                  <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateTimeTablePrint();">×</button></td>
-                </tr>
-                <tr>
-                  <td><input value="13:50" class="tt-time"></td>
-                  <td><input value="6年女子800m" class="tt-event"></td>
-                  <td><input value="決勝" class="tt-type"></td>
-                  <td><input value="久保いおり(1組12番), 西山莉央(2組3番), 富永莉子(3組7番)" class="tt-players"></td>
-                  <td><input value="13:25~13:35" class="tt-call"></td>
-                  <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateTimeTablePrint();">×</button></td>
-                </tr>
-              </tbody>
+              <tbody id="tt-edit-tbody"></tbody>
             </table>
           </div>
 
-          <button class="btn btn-primary" onclick="updateTimeTablePrint()" style="margin-top: 12px;">🔄 印刷プレビューに反映</button>
+          <button class="btn btn-primary" onclick="saveCurrentEventData(); updateTimeTablePrint();" style="margin-top: 12px;">🔄 印刷プレビューに反映</button>
         </div>
 
         <div class="print-sheet" id="tt-print-sheet">
@@ -483,17 +480,198 @@
   <div id="toast">コピーしました！</div>
 
   <script>
-    let globalParsedEntries = [];
-    let hasRelayInCsv = false;
+    // データベース管理オブジェクト (localStorage連動)
+    let appDB = {
+      activeId: '',
+      events: {}
+    };
 
-    function loadSenderName() {
-      const saved = localStorage.getItem('amuro_sender_name');
-      if (saved) document.getElementById('inp-sender').value = saved;
+    function initDatabase() {
+      const saved = localStorage.getItem('amuro_app_db_v15');
+      if (saved) {
+        try {
+          appDB = JSON.parse(saved);
+        } catch(e) { console.error(e); }
+      }
+
+      // 初期データがない場合はデフォルト大会を作成
+      if (!appDB.events || Object.keys(appDB.events).length === 0) {
+        const defId = 'evt_' + Date.now();
+        appDB.events = {};
+        appDB.events[defId] = {
+          id: defId,
+          title: '第50回兵庫県小学生陸上競技大会',
+          date: '2026年6月21日（日） 競技開始9:00予定',
+          place: 'ウインク陸上競技場',
+          fee: '600円',
+          items: '男子100m/1500m, 女子100m/800m, リレー各個人種目',
+          url: 'https://chouseisan.com/s/...',
+          limit: '5月23日（土）練習終了時まで',
+          sender: '久保',
+          status: { youkou: false, csv: false, schedule: false, startlist: false },
+          entries: [],
+          hasRelay: false,
+          relayMode: 'auto',
+          timetable: [
+            { time: "09:15", event: "低学年女子4×100m", type: "予選", players: "[1組9L] 山田佳澄, 山内彩生, 寺崎真心, 浪花英里", call: "08:50~09:00" },
+            { time: "09:40", event: "6年女子100m", type: "予選", players: "岩崎結菜(5組7L), 桝本紗那(7組3L)", call: "09:15~09:25" },
+            { time: "13:50", event: "6年女子800m", type: "決勝", players: "久保いおり(1組12番), 西山莉央(2組3番), 富永莉子(3組7番)", call: "13:25~13:35" }
+          ]
+        };
+        appDB.activeId = defId;
+        saveDatabase();
+      }
+
+      if (!appDB.events[appDB.activeId]) {
+        appDB.activeId = Object.keys(appDB.events)[0];
+      }
+
+      renderEventSelector();
+      loadActiveEventToUI();
     }
 
-    function saveSenderName() {
-      const name = document.getElementById('inp-sender').value;
-      localStorage.setItem('amuro_sender_name', name);
+    function saveDatabase() {
+      localStorage.setItem('amuro_app_db_v15', JSON.stringify(appDB));
+    }
+
+    function renderEventSelector() {
+      const sel = document.getElementById('event-select');
+      sel.innerHTML = '';
+      Object.values(appDB.events).forEach(ev => {
+        const opt = document.createElement('option');
+        opt.value = ev.id;
+        opt.innerText = ev.title || '（無題の大会）';
+        if (ev.id === appDB.activeId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function changeActiveEvent() {
+      appDB.activeId = document.getElementById('event-select').value;
+      saveDatabase();
+      loadActiveEventToUI();
+      showToast('大会データを切り替えました');
+    }
+
+    function createNewEvent() {
+      const name = prompt('新しい大会名を入力してください:', '令和8年度 秋季記録会');
+      if (!name) return;
+
+      const newId = 'evt_' + Date.now();
+      appDB.events[newId] = {
+        id: newId,
+        title: name,
+        date: '', place: '', fee: '600円', items: '', url: '', limit: '',
+        sender: document.getElementById('inp-sender').value || '久保',
+        status: { youkou: false, csv: false, schedule: false, startlist: false },
+        entries: [],
+        hasRelay: false,
+        relayMode: 'auto',
+        timetable: []
+      };
+      appDB.activeId = newId;
+      saveDatabase();
+      renderEventSelector();
+      loadActiveEventToUI();
+      showToast('新規大会を作成しました！');
+    }
+
+    function deleteActiveEvent() {
+      const current = appDB.events[appDB.activeId];
+      if (!current) return;
+      if (Object.keys(appDB.events).length <= 1) {
+        alert('大会は最低1つ必要です。削除できません。');
+        return;
+      }
+      if (!confirm(`大会「${current.title}」の全データを削除してもよろしいですか？`)) return;
+
+      delete appDB.events[appDB.activeId];
+      appDB.activeId = Object.keys(appDB.events)[0];
+      saveDatabase();
+      renderEventSelector();
+      loadActiveEventToUI();
+      showToast('大会を削除しました');
+    }
+
+    // 現在の大会データをUIへ読み込み
+    function loadActiveEventToUI() {
+      const ev = appDB.events[appDB.activeId];
+      if (!ev) return;
+
+      // タイトル群
+      document.getElementById('custom-event-title').value = ev.title || '';
+      document.getElementById('tt-event-title').value = ev.title || '';
+      document.getElementById('inp-sender').value = ev.sender || '久保';
+      updatePrintHeader();
+
+      // ステータスバッジ
+      ['youkou', 'csv', 'schedule', 'startlist'].forEach(k => {
+        const drop = document.getElementById(`drop-${k}`);
+        const statusEl = document.getElementById(`status-${k}`);
+        if (ev.status && ev.status[k]) {
+          drop.classList.add('loaded');
+          statusEl.innerText = '✓ 読込済';
+        } else {
+          drop.classList.remove('loaded');
+          statusEl.innerText = '';
+        }
+      });
+
+      // 連絡網フォーム
+      updateTemplateForm();
+
+      // エントリーテーブル
+      if (ev.entries && ev.entries.length > 0) {
+        let m = 0, f = 0;
+        ev.entries.forEach(e => e.name.includes('(男子)') ? m++ : f++);
+        renderEntryTableUI(ev.entries, m, f);
+      } else {
+        document.getElementById('entry-result-card').style.display = 'none';
+      }
+
+      // タイムテーブル
+      const tbody = document.getElementById('tt-edit-tbody');
+      tbody.innerHTML = '';
+      if (ev.timetable && ev.timetable.length > 0) {
+        ev.timetable.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input value="${r.time}" class="tt-time" oninput="saveCurrentEventData()"></td>
+            <td><input value="${r.event}" class="tt-event" oninput="saveCurrentEventData()"></td>
+            <td><input value="${r.type}" class="tt-type" oninput="saveCurrentEventData()"></td>
+            <td><input value="${r.players}" class="tt-players" oninput="saveCurrentEventData()"></td>
+            <td><input value="${r.call}" class="tt-call" oninput="saveCurrentEventData()"></td>
+            <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); saveCurrentEventData(); updateTimeTablePrint();">×</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+      updateTimeTablePrint();
+    }
+
+    // UIの編集内容を現在の大会オブジェクトへ同期・保存
+    function saveCurrentEventData() {
+      const ev = appDB.events[appDB.activeId];
+      if (!ev) return;
+
+      ev.title = document.getElementById('custom-event-title').value || document.getElementById('tt-event-title').value;
+      ev.sender = document.getElementById('inp-sender').value;
+      
+      // タイムテーブルの保存
+      const editRows = document.querySelectorAll('#tt-edit-tbody tr');
+      ev.timetable = [];
+      editRows.forEach(r => {
+        ev.timetable.push({
+          time: r.querySelector('.tt-time').value,
+          event: r.querySelector('.tt-event').value,
+          type: r.querySelector('.tt-type').value,
+          players: r.querySelector('.tt-players').value,
+          call: r.querySelector('.tt-call').value
+        });
+      });
+
+      saveDatabase();
+      renderEventSelector();
     }
 
     function switchMainTab(evt, tabId) {
@@ -511,29 +689,32 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
-    // PDF保存用印刷関数（タイトルを動的に書き換えて印刷）
+    // PDF保存用印刷関数
     function printDocument(type) {
       const originalTitle = document.title;
+      const ev = appDB.events[appDB.activeId];
+      const title = (ev && ev.title) ? ev.title : '大会';
+
       if (type === 'entry') {
-        const title = document.getElementById('custom-event-title').value || '大会';
         document.title = `${title} 出場申込リスト`;
       } else if (type === 'timetable') {
-        const title = document.getElementById('tt-event-title').value || '大会';
         document.title = `${title} 応援スケジュール`;
       }
       window.print();
       setTimeout(() => { document.title = originalTitle; }, 1000);
     }
 
-    // 大会ハブ：一括ファイル投入ハンドラー
+    // 大会ハブ：ファイル投入ハンドラー
     async function handleHubFile(event, type) {
       const file = event.target.files[0];
       if (!file) return;
+      const ev = appDB.events[appDB.activeId];
 
       if (type === 'youkou') {
         setDropStatus('youkou', '解析中...');
         const text = await extractFileText(file);
         parseYoukouText(text);
+        ev.status.youkou = true;
         setDropStatus('youkou', '✓ 読込完了');
         document.getElementById('drop-youkou').classList.add('loaded');
       } else if (type === 'csv') {
@@ -541,9 +722,9 @@
         const reader = new FileReader();
         reader.onload = function(e) {
           parseCSV(e.target.result, file.name);
-          setDropStatus('csv', `✓ ${globalParsedEntries.length}名抽出完了`);
+          ev.status.csv = true;
+          setDropStatus('csv', `✓ ${ev.entries.length}名抽出完了`);
           document.getElementById('drop-csv').classList.add('loaded');
-          // タイムテーブル側にも自動連携
           autoMapEntriesToTimeTable();
         };
         reader.readAsText(file, 'UTF-8');
@@ -551,15 +732,18 @@
         setDropStatus('schedule', 'タイテ解析中...');
         const text = await extractFileText(file);
         parseScheduleText(text);
+        ev.status.schedule = true;
         setDropStatus('schedule', '✓ タイテ解析完了');
         document.getElementById('drop-schedule').classList.add('loaded');
       } else if (type === 'startlist') {
         setDropStatus('startlist', 'スタートリスト照合中...');
         const text = await extractFileText(file);
         parseStartListText(text);
+        ev.status.startlist = true;
         setDropStatus('startlist', '✓ 組・レーン照合完了');
         document.getElementById('drop-startlist').classList.add('loaded');
       }
+      saveDatabase();
     }
 
     function setDropStatus(id, text) {
@@ -567,7 +751,6 @@
       if (el) el.innerText = text;
     }
 
-    // ファイルからテキストを抽出（PDF・画像・テキスト共用）
     async function extractFileText(file) {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         const typedarray = new Uint8Array(await file.arrayBuffer());
@@ -590,31 +773,32 @@
     // 要項テキスト解析
     function parseYoukouText(text) {
       if (!text || !text.trim()) return;
+      const ev = appDB.events[appDB.activeId];
 
       const titleMatch = text.match(/(第[0-9０-９]+回[^\n\r]+大会|[^\n\r]+記録会|[^\n\r]+陸上競技大会|[^\n\r]+マラソン)/);
       if (titleMatch) {
         const title = titleMatch[0].trim().replace(/\s+/g, ' ');
-        if (document.getElementById('inp-event')) document.getElementById('inp-event').value = title;
-        if (document.getElementById('custom-event-title')) document.getElementById('custom-event-title').value = title;
-        if (document.getElementById('tt-event-title')) document.getElementById('tt-event-title').value = title;
+        ev.title = title;
+        document.getElementById('custom-event-title').value = title;
+        document.getElementById('tt-event-title').value = title;
         updatePrintHeader();
       }
 
       const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
-      if (dateMatch && document.getElementById('inp-date')) document.getElementById('inp-date').value = dateMatch[0].trim().replace(/\s+/g, ' ');
+      if (dateMatch) ev.date = dateMatch[0].trim().replace(/\s+/g, ' ');
 
       const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場)/);
-      if (placeMatch && document.getElementById('inp-place')) document.getElementById('inp-place').value = placeMatch[0].trim().replace(/\s+/g, ' ');
+      if (placeMatch) ev.place = placeMatch[0].trim().replace(/\s+/g, ' ');
 
       const feeMatch = text.match(/([0-9０-９,]+円)/);
-      if (feeMatch && document.getElementById('inp-fee')) document.getElementById('inp-fee').value = feeMatch[0].trim();
+      if (feeMatch) ev.fee = feeMatch[0].trim();
 
       const itemsMatch = text.match(/(?:競技種目|種目)[：:\s]*([^\n\r]+(?:\n[^\n\r■✅]+)*)/);
-      if (itemsMatch && document.getElementById('inp-items')) {
-        document.getElementById('inp-items').value = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
-      }
+      if (itemsMatch) ev.items = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
 
-      showToast('要項から大会情報を抽出しました！');
+      saveDatabase();
+      updateTemplateForm();
+      showToast('要項から大会情報を反映しました！');
     }
 
     // 競技日程テキスト解析
@@ -631,53 +815,39 @@
           const cStart = m[4] || '';
           const cEnd = m[5] || '';
           const callTime = (cStart && cEnd) ? `${cStart}~${cEnd}` : (cStart ? `${cStart}~` : '');
-
           rows.push({ time: tStart, event: eventName, type: rType, players: '', call: callTime });
         }
       });
 
       if (rows.length > 0) {
-        const tbody = document.getElementById('tt-edit-tbody');
-        tbody.innerHTML = '';
-        rows.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><input value="${r.time}" class="tt-time"></td>
-            <td><input value="${r.event}" class="tt-event"></td>
-            <td><input value="${r.type}" class="tt-type"></td>
-            <td><input value="${r.players}" class="tt-players"></td>
-            <td><input value="${r.call}" class="tt-call"></td>
-            <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateTimeTablePrint();">×</button></td>
-          `;
-          tbody.appendChild(tr);
-        });
+        const ev = appDB.events[appDB.activeId];
+        ev.timetable = rows;
+        saveDatabase();
+        loadActiveEventToUI();
         autoMapEntriesToTimeTable();
-        updateTimeTablePrint();
         showToast(`${rows.length}件の競技日程を解析しました！`);
       }
     }
 
-    // スタートリスト照合
     function parseStartListText(text) {
-      if (!globalParsedEntries.length) return;
+      const ev = appDB.events[appDB.activeId];
+      if (!ev.entries.length) return;
       showToast('スタートリスト照合中...');
-      // スタートリストから安室RC(470)の組・レーンを抽出してタイムテーブルを更新
       autoMapEntriesToTimeTable(text);
     }
 
-    // エントリー選手をタイムテーブルへ自動マッチング
     function autoMapEntriesToTimeTable(rawStartListText = '') {
-      const editRows = document.querySelectorAll('#tt-edit-tbody tr');
-      if (!editRows.length || !globalParsedEntries.length) return;
+      const ev = appDB.events[appDB.activeId];
+      if (!ev.timetable.length || !ev.entries.length) return;
 
+      const editRows = document.querySelectorAll('#tt-edit-tbody tr');
       editRows.forEach(row => {
         const eventInput = row.querySelector('.tt-event');
         const playersInput = row.querySelector('.tt-players');
         const evName = eventInput.value.trim();
 
-        // 該当種目に出場する安室RC選手を検索
         const matched = [];
-        globalParsedEntries.forEach(p => {
+        ev.entries.forEach(p => {
           if (p.events.includes(evName) || (evName.includes('リレー') && p.relay === '◯')) {
             matched.push(p.name.replace(/\(.*?\)/g, '').trim());
           }
@@ -688,6 +858,7 @@
         }
       });
 
+      saveCurrentEventData();
       updateTimeTablePrint();
     }
 
@@ -695,39 +866,40 @@
     function updateTemplateForm() {
       const type = document.getElementById('tpl-select').value;
       const container = document.getElementById('dynamic-inputs');
+      const ev = appDB.events[appDB.activeId] || {};
       container.innerHTML = '';
 
       if (type === '募集') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="令和8年度第1回三木小学生長距離記録会"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '令和8年度第1回三木小学生長距離記録会'}"></div>
           <div class="form-row">
-            <div class="form-group"><label>開催日時</label><input id="inp-date" value="2026年5月6日（水・休） 競技開始10:00予定"></div>
-            <div class="form-group"><label>参加料</label><input id="inp-fee" value="600円"></div>
+            <div class="form-group"><label>開催日時</label><input id="inp-date" value="${ev.date || '2026年5月6日（水・休） 競技開始10:00予定'}"></div>
+            <div class="form-group"><label>参加料</label><input id="inp-fee" value="${ev.fee || '600円'}"></div>
           </div>
-          <div class="form-group"><label>開催場所</label><input id="inp-place" value="三木総合防災公園第一陸上競技場（現地集合・解散）\n〒673-0516 三木市志染町三津田1708"></div>
-          <div class="form-group"><label>競技種目・対象</label><input id="inp-items" value="男子800m（2年）、男子1500m（3～6年）、女子800m（2～6年）"></div>
-          <div class="form-group"><label>役員作成の調整さんURL</label><input id="inp-url" value="https://chouseisan.com/s/..."></div>
-          <div class="form-group"><label>申込期限</label><input id="inp-limit" value="4月11日（土）"></div>
+          <div class="form-group"><label>開催場所</label><input id="inp-place" value="${ev.place || '三木総合防災公園第一陸上競技場（現地集合・解散）\n〒673-0516 三木市志染町三津田1708'}"></div>
+          <div class="form-group"><label>競技種目・対象</label><input id="inp-items" value="${ev.items || '男子800m（2年）、男子1500m（3～6年）、女子800m（2～6年）'}"></div>
+          <div class="form-group"><label>役員作成の調整さんURL</label><input id="inp-url" value="${ev.url || 'https://chouseisan.com/s/...'}"></div>
+          <div class="form-group"><label>申込期限</label><input id="inp-limit" value="${ev.limit || '4月11日（土）'}"></div>
         `;
       } else if (type === '前日') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="兵庫県小学生陸上競技春季記録会"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '兵庫県小学生陸上競技春季記録会'}"></div>
           <div class="form-group"><label>集合時間・場所</label><input id="inp-time" value="7時30分 集合（サブトラ 時計の下あたり）"></div>
           <div class="form-group"><label>ゼッケン規定</label><input id="inp-bib" value="横24cm×縦16cmの白布（男子:黒字 / 女子:赤字、太さ2cm）、安全ピン8本"></div>
         `;
       } else if (type === '当日席') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="兵庫県小学生陸上競技大会"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '兵庫県小学生陸上競技大会'}"></div>
           <div class="form-group"><label>観覧・場所取り位置</label><input id="inp-seat" value="メインゲート(Cゲート)から入って、メインスタンド上側、添付画像の⑦あたり"></div>
         `;
       } else if (type === '当日速報') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="小学生陸上長距離記録会IN三木"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '小学生陸上長距離記録会IN三木'}"></div>
           <div class="form-group"><label>案内補足</label><input id="inp-memo" value="※安室RCの選手は赤字で表記しています。自己ベストや目標タイムを目指しつつ、それぞれが良い経験になることを願っています！"></div>
         `;
       } else if (type === 'リザルト') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="小学生長距離記録会IN三木"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '小学生長距離記録会IN三木'}"></div>
           <div class="form-group"><label>労いの言葉</label><textarea id="inp-comment" rows="3">本日は朝早くから記録会への参加、お疲れ様でした！\n絶好の気象条件の中でしたが、それぞれ納得のいく結果が出た子、悔しい思いをした子、様々かと思います。\nどんな結果であれ、受け止めて次に繋がる経験になれば嬉しいですね。</textarea></div>
         `;
       } else if (type === '練習中止') {
@@ -853,7 +1025,7 @@
       if (headerIdx === -1) return;
 
       const headers = rows[headerIdx].map(h => h.replace(/"/g, '').trim());
-      hasRelayInCsv = headers.some(h => h.includes('リレー') || h.includes('4×100'));
+      const hasRelay = headers.some(h => h.includes('リレー') || h.includes('4×100'));
 
       const parsedData = [];
       let maleCount = 0;
@@ -886,7 +1058,6 @@
             if (isPositive(val)) {
               if (colHeader.includes('リレー') || colHeader.includes('4×100')) {
                 relayWanted = '◯';
-                hasRelayInCsv = true;
               } else if (!colHeader.includes('不参加') && !colHeader.includes('学校から参加')) {
                 events.push(colHeader);
               }
@@ -941,7 +1112,6 @@
                 if (isPositive(val)) {
                   if (eventName.includes('リレー') || eventName.includes('4×100')) {
                     memberRelays[n] = '◯';
-                    hasRelayInCsv = true;
                   } else if (!eventName.includes('不参加')) {
                     memberEvents[n].push(eventName);
                   }
@@ -985,47 +1155,64 @@
       }
 
       parsedData.sort((a, b) => b.grade.localeCompare(a.grade));
-      globalParsedEntries = parsedData;
+      
+      const ev = appDB.events[appDB.activeId];
+      ev.entries = parsedData;
+      ev.hasRelay = hasRelay;
 
       const inferredTitle = rows[0] && rows[0][0] ? rows[0][0].replace(/["【】]/g, '').trim() : '';
-      const finalTitle = (inferredTitle.length > 3 && !inferredTitle.includes('下記')) ? inferredTitle : filename.replace('.csv','');
-      document.getElementById('custom-event-title').value = finalTitle;
-      document.getElementById('tt-event-title').value = finalTitle;
+      if (inferredTitle.length > 3 && !inferredTitle.includes('下記') && !ev.title) {
+        ev.title = inferredTitle;
+        document.getElementById('custom-event-title').value = inferredTitle;
+        document.getElementById('tt-event-title').value = inferredTitle;
+      }
       updatePrintHeader();
-
       renderEntryTableUI(parsedData, maleCount, femaleCount);
+      saveDatabase();
     }
 
     function updatePrintHeader() {
-      const val = document.getElementById('custom-event-title').value;
+      const ev = appDB.events[appDB.activeId];
+      const val = (ev && ev.title) ? ev.title : document.getElementById('custom-event-title').value;
       document.getElementById('print-main-title').innerText = val ? `${val} 出場申込リスト` : '大会出場申込リスト';
     }
 
     function reRenderCurrentTable() {
-      if (globalParsedEntries.length > 0) {
+      const ev = appDB.events[appDB.activeId];
+      if (ev && ev.entries && ev.entries.length > 0) {
         let m = 0, f = 0;
-        globalParsedEntries.forEach(e => e.name.includes('(男子)') ? m++ : f++);
-        renderEntryTableUI(globalParsedEntries, m, f);
+        ev.entries.forEach(e => e.name.includes('(男子)') ? m++ : f++);
+        renderEntryTableUI(ev.entries, m, f);
       }
     }
 
     function applyQuickFee(mode) {
       const baseFeeStr = document.getElementById('quick-fee-val').value || '600円';
       const baseNum = parseInt(baseFeeStr.replace(/[^0-9]/g, '')) || 600;
+      const ev = appDB.events[appDB.activeId];
+      if (!ev || !ev.entries) return;
 
-      globalParsedEntries.forEach(item => {
-        if (mode === 'all') item.fee = `${baseNum}円`;
-        else if (mode === 'by-count') item.fee = `${baseNum * (item.eventCount || 1)}円`;
-        else if (mode === 'check') item.fee = '☐';
-        else if (mode === 'clear') item.fee = '';
+      ev.entries.forEach(item => {
+        if (mode === 'all') {
+          item.fee = `${baseNum}円`;
+        } else if (mode === 'by-count') {
+          const count = item.eventCount || 1;
+          item.fee = `${baseNum * count}円`;
+        } else if (mode === 'check') {
+          item.fee = '☐';
+        } else if (mode === 'clear') {
+          item.fee = '';
+        }
       });
+      saveDatabase();
       reRenderCurrentTable();
       showToast('集金額を一括更新しました！');
     }
 
     function renderEntryTableUI(data, maleCount, femaleCount) {
       const relayMode = document.getElementById('relay-col-mode').value;
-      const showRelay = (relayMode === 'show') || (relayMode === 'auto' && hasRelayInCsv);
+      const ev = appDB.events[appDB.activeId];
+      const showRelay = (relayMode === 'show') || (relayMode === 'auto' && ev && ev.hasRelay);
 
       document.getElementById('th-relay').style.display = showRelay ? '' : 'none';
 
@@ -1037,10 +1224,10 @@
         tr.innerHTML = `
           <td><b>${row.grade}</b></td>
           <td><b>${row.name}</b></td>
-          <td><input class="table-input" value="${row.events}" oninput="globalParsedEntries[${idx}].events = this.value"></td>
-          ${showRelay ? `<td style="text-align:center;"><input class="table-input table-input-center" value="${row.relay || ''}" oninput="globalParsedEntries[${idx}].relay = this.value"></td>` : ''}
-          <td style="text-align:center;"><input class="table-input table-input-center" value="${row.fee || ''}" placeholder="例: 600円" oninput="globalParsedEntries[${idx}].fee = this.value"></td>
-          <td><input class="table-input" value="${row.isSchool ? row.isSchool + ' ' : ''}${row.comment}" oninput="globalParsedEntries[${idx}].comment = this.value"></td>
+          <td><input class="table-input" value="${row.events}" oninput="appDB.events['${appDB.activeId}'].entries[${idx}].events = this.value; saveDatabase();"></td>
+          ${showRelay ? `<td style="text-align:center;"><input class="table-input table-input-center" value="${row.relay || ''}" oninput="appDB.events['${appDB.activeId}'].entries[${idx}].relay = this.value; saveDatabase();"></td>` : ''}
+          <td style="text-align:center;"><input class="table-input table-input-center" value="${row.fee || ''}" placeholder="例: 600円" oninput="appDB.events['${appDB.activeId}'].entries[${idx}].fee = this.value; saveDatabase();"></td>
+          <td><input class="table-input" value="${row.isSchool ? row.isSchool + ' ' : ''}${row.comment}" oninput="appDB.events['${appDB.activeId}'].entries[${idx}].comment = this.value; saveDatabase();"></td>
         `;
         tbody.appendChild(tr);
       });
@@ -1053,24 +1240,25 @@
       document.getElementById('entry-result-card').style.display = 'block';
     }
 
-    // 応援タイムテーブル
     function addTimelineRow() {
       const tbody = document.getElementById('tt-edit-tbody');
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><input value="10:00" class="tt-time"></td>
-        <td><input value="種目名" class="tt-event"></td>
-        <td><input value="予選" class="tt-type"></td>
-        <td><input value="選手名(組L)" class="tt-players"></td>
-        <td><input value="09:35~09:45" class="tt-call"></td>
-        <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateTimeTablePrint();">×</button></td>
+        <td><input value="10:00" class="tt-time" oninput="saveCurrentEventData()"></td>
+        <td><input value="種目名" class="tt-event" oninput="saveCurrentEventData()"></td>
+        <td><input value="予選" class="tt-type" oninput="saveCurrentEventData()"></td>
+        <td><input value="選手名(組L)" class="tt-players" oninput="saveCurrentEventData()"></td>
+        <td><input value="09:35~09:45" class="tt-call" oninput="saveCurrentEventData()"></td>
+        <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); saveCurrentEventData(); updateTimeTablePrint();">×</button></td>
       `;
       tbody.appendChild(tr);
+      saveCurrentEventData();
       updateTimeTablePrint();
     }
 
     function updateTimeTablePrint() {
-      const title = document.getElementById('tt-event-title').value;
+      const ev = appDB.events[appDB.activeId];
+      const title = (ev && ev.title) ? ev.title : document.getElementById('tt-event-title').value;
       const org = document.getElementById('tt-org-name').value;
       document.getElementById('print-tt-title').innerText = `${title} 応援スケジュール`;
       document.getElementById('print-tt-org').innerText = org;
@@ -1123,8 +1311,8 @@
       });
     }
 
-    loadSenderName();
-    updateTemplateForm();
+    // 初期化実行
+    initDatabase();
   </script>
 </body>
 </html>
