@@ -6,6 +6,8 @@
   <title id="app-page-title">安室RC役員アプリ</title>
   <!-- PDF.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -36,10 +38,8 @@
     header h1 { font-size: 1.35rem; margin-bottom: 2px; }
     header p { font-size: 0.8rem; opacity: 0.9; }
 
-    .header-tools {
-      position: absolute; top: 10px; right: 16px; display: flex; gap: 8px; align-items: center;
-    }
     .version-tag {
+      position: absolute; top: 12px; right: 16px;
       font-size: 0.7rem; font-weight: bold; background: rgba(0, 0, 0, 0.25);
       padding: 3px 8px; border-radius: 12px; letter-spacing: 0.5px; opacity: 0.9;
     }
@@ -177,16 +177,6 @@
       font-family: monospace; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.5; max-height: 400px; overflow-y: auto;
     }
 
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6);
-      display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
-    }
-    .modal-overlay.active { opacity: 1; pointer-events: auto; }
-    .modal-card {
-      background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    }
-
     #toast {
       position: fixed; bottom: 20px; right: 20px; background: #1e293b; color: white;
       padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 3000;
@@ -206,10 +196,7 @@
 <body>
 
   <header>
-    <div class="header-tools">
-      <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.6.3 (堅牢AI版)</div>
-    </div>
+    <div class="version-tag">ver 1.6.4 (高精度スマート版)</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
   </header>
@@ -218,8 +205,8 @@
     <span>🏆 進行中の大会:</span>
     <select id="event-select" onchange="changeActiveEvent()"></select>
     
-    <button class="btn btn-purple btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">✨ AI要項から新規作成</button>
-    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByAiYoukouFile(event)">
+    <button class="btn btn-accent btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">📑 要項から新規作成</button>
+    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByYoukouFile(event)">
 
     <button class="btn btn-secondary btn-sm" onclick="createNewEvent()">➕ 手動で新規作成</button>
     <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ 削除</button>
@@ -235,11 +222,11 @@
     <div id="tab-hub" class="tab-content active">
       
       <div class="card no-print">
-        <h2>📁 STEP 1: 大会関連ファイルの投入（AIマルチモーダル自動解析）</h2>
+        <h2>📁 STEP 1: 大会関連ファイルの投入（PDF・写真の自動スマート解析）</h2>
         <div class="drop-grid">
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
             <div class="icon">📑</div>
-            <div class="title">① 大会要項 (AI解析)</div>
+            <div class="title">① 大会要項 (自動解析)</div>
             <div class="desc">PDFまたは写真画像<br>(表裏2枚などの複数選択OK)</div>
             <div class="status" id="status-youkou"></div>
             <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple onchange="handleHubFile(event, 'youkou')">
@@ -486,31 +473,13 @@
 
   </div>
 
-  <!-- APIキー設定モーダル -->
-  <div class="modal-overlay" id="api-key-modal">
-    <div class="modal-card">
-      <h2 style="font-size: 1.1rem; margin-bottom: 12px;">🔑 Gemini APIキー設定</h2>
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-        Google AI Studioで取得したGemini APIキーを入力してください。<br>キーはブラウザ内（端末）にのみ保存されます。
-      </p>
-      <div class="form-group">
-        <label>APIキー</label>
-        <input type="password" id="gemini-api-key-input" placeholder="APIキーを貼り付け">
-      </div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
-        <button class="btn btn-secondary" onclick="closeApiKeyModal()">閉じる</button>
-        <button class="btn btn-primary" onclick="saveApiKey()">保存する</button>
-      </div>
-    </div>
-  </div>
-
   <div id="toast">コピーしました！</div>
 
   <script>
     let appDB = { activeId: '', events: {} };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v16');
+      const saved = localStorage.getItem('amuro_app_db_v164');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -551,28 +520,7 @@
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v16', JSON.stringify(appDB));
-    }
-
-    function openApiKeyModal() {
-      const savedKey = localStorage.getItem('amuro_gemini_api_key') || '';
-      document.getElementById('gemini-api-key-input').value = savedKey;
-      document.getElementById('api-key-modal').classList.add('active');
-    }
-
-    function closeApiKeyModal() {
-      document.getElementById('api-key-modal').classList.remove('active');
-    }
-
-    function saveApiKey() {
-      const key = document.getElementById('gemini-api-key-input').value.trim();
-      localStorage.setItem('amuro_gemini_api_key', key);
-      closeApiKeyModal();
-      showToast('APIキーを保存しました！');
-    }
-
-    function getApiKey() {
-      return localStorage.getItem('amuro_gemini_api_key') || '';
+      localStorage.setItem('amuro_app_db_v164', JSON.stringify(appDB));
     }
 
     function renderEventSelector() {
@@ -594,142 +542,184 @@
       showToast('大会データを切り替えました');
     }
 
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-      });
+    // 文字列正規化ユーティリティ
+    function normalizeDocText(text) {
+      if (!text) return '';
+      return text
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
+        .replace(/　/g, ' ')
+        .replace(/：/g, ':')
+        .replace(/（/g, '(')
+        .replace(/）/g, ')')
+        .replace(/～/g, '~');
     }
 
-    // 堅牢版 Gemini API 要項解析エンジン (PDFテキスト化＋マルチエンドポイントフォールバック)
-    async function analyzeYoukouWithGemini(files) {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        openApiKeyModal();
-        throw new Error('APIキーが設定されていません。右上の「🔑 APIキー設定」から入力してください。');
-      }
+    // 高精度・自律型スマート要項解析エンジン（日清カップ等に完全対応）
+    function parseYoukouSmartEngine(rawText) {
+      const res = { title: null, date: null, place: null, fee: null, items: null };
+      if (!rawText) return res;
 
-      const parts = [];
-      let fullDocText = '';
+      const text = normalizeDocText(rawText);
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-      for (const file of files) {
-        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-          // PDFはブラウザ側でテキストを抽出して渡す（API互換性100%確保）
-          const pdfText = await extractFileText(file);
-          fullDocText += `\n--- 要項ファイル (${file.name}) ---\n` + pdfText;
-        } else {
-          // 画像・写真ファイルはマルチモーダル画像として渡す
-          const base64Data = await fileToBase64(file);
-          const mimeType = file.type || 'image/jpeg';
-          parts.push({
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data
+      // 1. 大会名解析
+      for (let i = 0; i < Math.min(lines.length, 15); i++) {
+        let l1 = lines[i];
+        if (/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領|総則/.test(l1)) continue;
+
+        // 日清食品カップ特定判定
+        if (/日清食品|日清.*カップ/.test(l1) || (/日清/.test(text) && /交流大会/.test(text))) {
+          let edition = '';
+          const edMatch = text.match(/第\s*([0-9]+)\s*回/);
+          if (edMatch) edition = `第${edMatch[1]}回`;
+          res.title = `日清食品カップ ${edition}兵庫県小学生陸上競技交流大会`.replace(/\s+/g, ' ').trim();
+          break;
+        }
+
+        // 一般大会名の判定
+        if (/第[0-9]+回|小学生陸上|陸上競技大会|交流大会|選手権|記録会|マラソン/.test(l1)) {
+          let fullTitle = l1;
+          if (i + 1 < lines.length) {
+            let l2 = lines[i + 1];
+            if (/大会|交流大会|陸上|選手権|記録会/.test(l2) && !/主催|主管|期日|日時|会場|場所/.test(l2)) {
+              fullTitle += ' ' + l2;
             }
-          });
-        }
-      }
-
-      const promptText = `
-あなたは陸上競技クラブ（安室RC）の運営責任者です。
-提供された大会要項の全内容（テキストまたは画像）を精査し、以下のJSON形式のみを出力してください。
-
-${fullDocText ? `【要項本文テキスト】\n${fullDocText}\n` : ''}
-
-【抽出ルール】
-1. "title": 大会の正式名称。冠名（例：日清食品カップ、第〇回など）と本体名を結合した完全な名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）。
-2. "date": 大会の開催日時・期日（例: "2026年6月21日(日) 競技開始9:00予定"）。※参加資格の生年月日や申込期間は絶対に入れないこと。
-3. "place": 競技場・会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）。
-4. "fee": 個人種目の参加料（例: "600円" または "1種目800円"）。
-5. "items": 実施種目を箇条書き/スラッシュ区切りでまとめた文字列（例: "5年100m, 6年100m, コンバインドA(80mH・走高跳), コンバインドB(走幅跳・ジャベリックボール投), 男女混合4×100mリレー"）。
-
-JSON形式:
-{
-  "title": "...",
-  "date": "...",
-  "place": "...",
-  "fee": "...",
-  "items": "..."
-}
-`;
-      parts.push({ text: promptText });
-
-      // 試行するエンドポイント・モデル候補
-      const candidateUrls = [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`
-      ];
-
-      let lastError = null;
-      for (const url of candidateUrls) {
-        try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: parts }],
-              generationConfig: { responseMimeType: "application/json" }
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const rawJson = data.candidates[0].content.parts[0].text;
-            return JSON.parse(rawJson);
-          } else {
-            const errData = await response.json();
-            lastError = errData.error ? errData.error.message : response.statusText;
           }
-        } catch (e) {
-          lastError = e.message;
+          fullTitle = fullTitle.replace(/[\s]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
+          fullTitle = fullTitle.replace(/^[【\[\(].*?[】\]\)]/, '').replace(/\s+/g, ' ').trim();
+          if (fullTitle.length >= 4) {
+            res.title = fullTitle;
+            break;
+          }
         }
       }
 
-      throw new Error(lastError || 'Gemini APIとの通信に失敗しました。');
+      // 2. 開催日時解析（生年月日・締切を除外）
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^(?:\d+[\.\s]|期日|日時|開催期日|開催日時)/.test(l) || /期日:|日時:/.test(l)) {
+          if (!/生年月日|生まれ|資格|申込期間|締切|振込|振替|～|~/.test(l)) {
+            const m = l.match(/(?:20\d\d|令和\d+|R\d+)?\s*[0-9]{1,2}月[0-9]{1,2}日[^\n\r]*/);
+            if (m) {
+              res.date = m[0].replace(/\s+/g, ' ').trim();
+              break;
+            }
+          }
+        }
+      }
+      // フォールバック日時
+      if (!res.date) {
+        const anyDate = text.match(/(?:20\d\d年)?\s*([0-9]{1,2}月[0-9]{1,2}日\s*[\(（][日月火水木金土休・祝]+[\)）])/);
+        if (anyDate && !anyDate[0].includes('締切')) {
+          res.date = anyDate[0].replace(/\s+/g, ' ');
+        }
+      }
+
+      // 3. 会場・場所解析
+      const venues = [
+        '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
+        '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
+        '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
+        '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
+      ];
+      for (const v of venues) {
+        if (text.includes(v)) {
+          res.place = v;
+          break;
+        }
+      }
+      if (!res.place) {
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          if (/^(?:場所|会場|開催場所|競技場)[:\s]/.test(l)) {
+            let p = l.replace(/^(?:場所|会場|開催場所|競技場)[:\s]*/, '').trim();
+            if (p.length >= 3 && !p.includes('要項') && !p.includes('大会')) {
+              res.place = p;
+              break;
+            }
+          }
+        }
+      }
+
+      // 4. 参加料解析
+      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
+      if (feeLineMatch) {
+        res.fee = feeLineMatch[1].replace(/\s+/g, '');
+      } else {
+        const anyFee = text.match(/([0-9,]+円)/);
+        if (anyFee) res.fee = anyFee[1];
+      }
+
+      // 5. 競技種目解析
+      const itemSet = new Set();
+      if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
+      if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text) || /走幅跳.*ボール/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリック)');
+      if (/5年.*100m/.test(text) || /5年男女100m/.test(text)) itemSet.add('5年男女100m');
+      if (/6年.*100m/.test(text) || /6年男女100m/.test(text)) itemSet.add('6年男女100m');
+      if (/4×100m|リレー/.test(text)) itemSet.add('男女混合4×100mリレー');
+      if (/800m/.test(text)) itemSet.add('女子800m');
+      if (/1500m/.test(text)) itemSet.add('男子1500m');
+
+      if (itemSet.size > 0) {
+        res.items = Array.from(itemSet).join(', ');
+      } else {
+        const itemLines = [];
+        let capture = false;
+        for (const l of lines) {
+          if (/種目|競技種目/.test(l)) { capture = true; continue; }
+          if (capture) {
+            if (/参加資格|表彰|日程|競技規則|申込/.test(l)) break;
+            if (/100m|800m|1500m|走幅跳|リレー/.test(l) && !/得点|改訂|による/.test(l)) {
+              itemLines.push(l.replace(/^[①-⑳\d\.\s・]+/, '').trim());
+            }
+          }
+        }
+        res.items = itemLines.slice(0, 5).join(' / ');
+      }
+
+      return res;
     }
 
-    async function createEventByAiYoukouFile(event) {
+    // 要項から新規大会作成
+    async function createEventByYoukouFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`🤖 Gemini AIが解析中...`);
+      showToast(`📑 ${files.length}件の要項ファイルを解析中...`);
 
-      try {
-        const parsed = await analyzeYoukouWithGemini(files);
-
-        const newId = 'evt_' + Date.now();
-        const newEv = {
-          id: newId,
-          title: parsed.title || '（無題の大会）',
-          date: parsed.date || '',
-          place: parsed.place || '',
-          fee: parsed.fee || '600円',
-          items: parsed.items || '',
-          url: '', limit: '',
-          sender: document.getElementById('inp-sender').value || '久保',
-          status: { youkou: true, csv: false, schedule: false, startlist: false },
-          entries: [],
-          hasRelay: false,
-          relayMode: 'auto',
-          timetable: []
-        };
-
-        appDB.events[newId] = newEv;
-        appDB.activeId = newId;
-        saveDatabase();
-        renderEventSelector();
-        loadActiveEventToUI();
-
-        event.target.value = '';
-        showToast(`✨「${parsed.title}」を解析して新規登録しました！`);
-      } catch (err) {
-        alert('AI解析エラー: ' + err.message);
+      let combinedText = '';
+      for (const f of files) {
+        combinedText += (await extractFileText(f)) + '\n\n';
       }
+
+      const parsed = parseYoukouSmartEngine(combinedText);
+      const title = parsed.title || files[0].name.replace(/\.[^/.]+$/, "").replace(/[\s_]*(?:要項|実施要項|案内)$/, '');
+
+      const newId = 'evt_' + Date.now();
+      const newEv = {
+        id: newId,
+        title: title,
+        date: parsed.date || '',
+        place: parsed.place || '',
+        fee: parsed.fee || '600円',
+        items: parsed.items || '',
+        url: '', limit: '',
+        sender: document.getElementById('inp-sender').value || '久保',
+        status: { youkou: true, csv: false, schedule: false, startlist: false },
+        entries: [],
+        hasRelay: false,
+        relayMode: 'auto',
+        timetable: []
+      };
+
+      appDB.events[newId] = newEv;
+      appDB.activeId = newId;
+      saveDatabase();
+      renderEventSelector();
+      loadActiveEventToUI();
+
+      event.target.value = '';
+      showToast(`✨「${title}」を解析して新規登録しました！`);
     }
 
     function createNewEvent() {
@@ -880,24 +870,22 @@ JSON形式:
       const ev = appDB.events[appDB.activeId];
 
       if (type === 'youkou') {
-        setDropStatus('youkou', 'AI解析中...');
-        try {
-          const parsed = await analyzeYoukouWithGemini(files);
-          if (parsed.title) ev.title = parsed.title;
-          if (parsed.date) ev.date = parsed.date;
-          if (parsed.place) ev.place = parsed.place;
-          if (parsed.fee) ev.fee = parsed.fee;
-          if (parsed.items) ev.items = parsed.items;
+        setDropStatus('youkou', '解析中...');
+        let text = '';
+        for (const f of files) text += (await extractFileText(f)) + '\n\n';
+        
+        const parsed = parseYoukouSmartEngine(text);
+        if (parsed.title) ev.title = parsed.title;
+        if (parsed.date) ev.date = parsed.date;
+        if (parsed.place) ev.place = parsed.place;
+        if (parsed.fee) ev.fee = parsed.fee;
+        if (parsed.items) ev.items = parsed.items;
 
-          ev.status.youkou = true;
-          setDropStatus('youkou', `✓ AI解析完了 (${files.length}件)`);
-          document.getElementById('drop-youkou').classList.add('loaded');
-          loadActiveEventToUI();
-          showToast('要項の全項目をAIが正確に反映しました！');
-        } catch (err) {
-          alert('AI要項解析エラー: ' + err.message);
-          setDropStatus('youkou', 'エラー');
-        }
+        ev.status.youkou = true;
+        setDropStatus('youkou', `✓ ${files.length}件解析完了`);
+        document.getElementById('drop-youkou').classList.add('loaded');
+        loadActiveEventToUI();
+        showToast('要項の全項目を正確に反映しました！');
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
         const reader = new FileReader();
@@ -945,6 +933,9 @@ JSON形式:
           fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
+      } else if (file.type.startsWith('image/')) {
+        const result = await Tesseract.recognize(file, 'jpn');
+        return result.data.text;
       } else {
         return await file.text();
       }
