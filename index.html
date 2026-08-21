@@ -45,8 +45,8 @@
 
     /* 大会選択バー */
     .event-selector-bar {
-      background: #334155; color: white; padding: 10px 16px; display: flex;
-      justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.85rem;
+      background: #1e293b; color: white; padding: 10px 16px; display: flex;
+      justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.85rem;
     }
     .event-selector-bar select {
       padding: 6px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a;
@@ -149,7 +149,7 @@
     .badge-gray { background: #f1f5f9; color: #475569; }
 
     .btn {
-      padding: 8px 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+      padding: 8px 14px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
       font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;
     }
     .btn-primary { background: var(--primary); color: white; }
@@ -160,7 +160,7 @@
     .btn-secondary:hover { background: #cbd5e1; }
     .btn-danger { background: #ef4444; color: white; }
     .btn-danger:hover { background: #dc2626; }
-    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
 
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; color: var(--text-muted); }
@@ -193,7 +193,7 @@
 <body>
 
   <header>
-    <div class="version-tag">ver 1.5.0</div>
+    <div class="version-tag">ver 1.5.1</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
   </header>
@@ -201,11 +201,14 @@
   <!-- 大会選択・管理バー -->
   <div class="event-selector-bar no-print">
     <span>🏆 進行中の大会:</span>
-    <select id="event-select" onchange="changeActiveEvent()">
-      <!-- 動的生成 -->
-    </select>
-    <button class="btn btn-primary btn-sm" onclick="createNewEvent()">➕ 新規大会を作成</button>
-    <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ この大会を削除</button>
+    <select id="event-select" onchange="changeActiveEvent()"></select>
+    
+    <!-- 要項から自動新規作成ボタン -->
+    <button class="btn btn-accent btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">📑 要項から新規作成</button>
+    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" style="display: none;" onchange="createEventByYoukouFile(event)">
+
+    <button class="btn btn-secondary btn-sm" onclick="createNewEvent()">➕ 手動で新規作成</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ 削除</button>
   </div>
 
   <nav class="nav-tabs no-print">
@@ -480,7 +483,6 @@
   <div id="toast">コピーしました！</div>
 
   <script>
-    // データベース管理オブジェクト (localStorage連動)
     let appDB = {
       activeId: '',
       events: {}
@@ -489,12 +491,9 @@
     function initDatabase() {
       const saved = localStorage.getItem('amuro_app_db_v15');
       if (saved) {
-        try {
-          appDB = JSON.parse(saved);
-        } catch(e) { console.error(e); }
+        try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
 
-      // 初期データがない場合はデフォルト大会を作成
       if (!appDB.events || Object.keys(appDB.events).length === 0) {
         const defId = 'evt_' + Date.now();
         appDB.events = {};
@@ -553,6 +552,59 @@
       showToast('大会データを切り替えました');
     }
 
+    // 要項ファイルから直接「新規大会」を作成
+    async function createEventByYoukouFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      showToast('要項ファイルを解析中...');
+      const text = await extractFileText(file);
+      if (!text || !text.trim()) {
+        alert('要項ファイルの読み取りに失敗しました。');
+        return;
+      }
+
+      // 大会名の抽出
+      const titleMatch = text.match(/(第[0-9０-９]+回[^\n\r]+大会|[^\n\r]+記録会|[^\n\r]+陸上競技大会|[^\n\r]+マラソン)/);
+      const title = titleMatch ? titleMatch[0].trim().replace(/\s+/g, ' ') : file.name.replace(/\.[^/.]+$/, "");
+
+      const newId = 'evt_' + Date.now();
+      const newEv = {
+        id: newId,
+        title: title,
+        date: '', place: '', fee: '600円', items: '', url: '', limit: '',
+        sender: document.getElementById('inp-sender').value || '久保',
+        status: { youkou: true, csv: false, schedule: false, startlist: false },
+        entries: [],
+        hasRelay: false,
+        relayMode: 'auto',
+        timetable: []
+      };
+
+      // 各項目を抽出してセット
+      const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
+      if (dateMatch) newEv.date = dateMatch[0].trim().replace(/\s+/g, ' ');
+
+      const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場)/);
+      if (placeMatch) newEv.place = placeMatch[0].trim().replace(/\s+/g, ' ');
+
+      const feeMatch = text.match(/([0-9０-９,]+円)/);
+      if (feeMatch) newEv.fee = feeMatch[0].trim();
+
+      const itemsMatch = text.match(/(?:競技種目|種目)[：:\s]*([^\n\r]+(?:\n[^\n\r■✅]+)*)/);
+      if (itemsMatch) newEv.items = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
+
+      appDB.events[newId] = newEv;
+      appDB.activeId = newId;
+      saveDatabase();
+      renderEventSelector();
+      loadActiveEventToUI();
+
+      // ファイルインプット初期化
+      event.target.value = '';
+      showToast(`「${title}」を新規作成し、要項データを反映しました！`);
+    }
+
     function createNewEvent() {
       const name = prompt('新しい大会名を入力してください:', '令和8年度 秋季記録会');
       if (!name) return;
@@ -593,18 +645,15 @@
       showToast('大会を削除しました');
     }
 
-    // 現在の大会データをUIへ読み込み
     function loadActiveEventToUI() {
       const ev = appDB.events[appDB.activeId];
       if (!ev) return;
 
-      // タイトル群
       document.getElementById('custom-event-title').value = ev.title || '';
       document.getElementById('tt-event-title').value = ev.title || '';
       document.getElementById('inp-sender').value = ev.sender || '久保';
       updatePrintHeader();
 
-      // ステータスバッジ
       ['youkou', 'csv', 'schedule', 'startlist'].forEach(k => {
         const drop = document.getElementById(`drop-${k}`);
         const statusEl = document.getElementById(`status-${k}`);
@@ -617,10 +666,8 @@
         }
       });
 
-      // 連絡網フォーム
       updateTemplateForm();
 
-      // エントリーテーブル
       if (ev.entries && ev.entries.length > 0) {
         let m = 0, f = 0;
         ev.entries.forEach(e => e.name.includes('(男子)') ? m++ : f++);
@@ -629,7 +676,6 @@
         document.getElementById('entry-result-card').style.display = 'none';
       }
 
-      // タイムテーブル
       const tbody = document.getElementById('tt-edit-tbody');
       tbody.innerHTML = '';
       if (ev.timetable && ev.timetable.length > 0) {
@@ -649,7 +695,6 @@
       updateTimeTablePrint();
     }
 
-    // UIの編集内容を現在の大会オブジェクトへ同期・保存
     function saveCurrentEventData() {
       const ev = appDB.events[appDB.activeId];
       if (!ev) return;
@@ -657,7 +702,6 @@
       ev.title = document.getElementById('custom-event-title').value || document.getElementById('tt-event-title').value;
       ev.sender = document.getElementById('inp-sender').value;
       
-      // タイムテーブルの保存
       const editRows = document.querySelectorAll('#tt-edit-tbody tr');
       ev.timetable = [];
       editRows.forEach(r => {
@@ -689,7 +733,6 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
-    // PDF保存用印刷関数
     function printDocument(type) {
       const originalTitle = document.title;
       const ev = appDB.events[appDB.activeId];
@@ -704,7 +747,6 @@
       setTimeout(() => { document.title = originalTitle; }, 1000);
     }
 
-    // 大会ハブ：ファイル投入ハンドラー
     async function handleHubFile(event, type) {
       const file = event.target.files[0];
       if (!file) return;
@@ -770,7 +812,6 @@
       }
     }
 
-    // 要項テキスト解析
     function parseYoukouText(text) {
       if (!text || !text.trim()) return;
       const ev = appDB.events[appDB.activeId];
@@ -797,11 +838,11 @@
       if (itemsMatch) ev.items = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
 
       saveDatabase();
+      renderEventSelector();
       updateTemplateForm();
       showToast('要項から大会情報を反映しました！');
     }
 
-    // 競技日程テキスト解析
     function parseScheduleText(text) {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
       const rows = [];
@@ -862,7 +903,6 @@
       updateTimeTablePrint();
     }
 
-    // らくらく連絡網テンプレート
     function updateTemplateForm() {
       const type = document.getElementById('tpl-select').value;
       const container = document.getElementById('dynamic-inputs');
@@ -952,7 +992,6 @@
       setTimeout(() => toast.style.opacity = '0', 2500);
     }
 
-    // CSVパーサー
     function parseCSVToRows(text) {
       const rows = [];
       let currentRow = [];
@@ -1193,16 +1232,10 @@
       if (!ev || !ev.entries) return;
 
       ev.entries.forEach(item => {
-        if (mode === 'all') {
-          item.fee = `${baseNum}円`;
-        } else if (mode === 'by-count') {
-          const count = item.eventCount || 1;
-          item.fee = `${baseNum * count}円`;
-        } else if (mode === 'check') {
-          item.fee = '☐';
-        } else if (mode === 'clear') {
-          item.fee = '';
-        }
+        if (mode === 'all') item.fee = `${baseNum}円`;
+        else if (mode === 'by-count') item.fee = `${baseNum * (item.eventCount || 1)}円`;
+        else if (mode === 'check') item.fee = '☐';
+        else if (mode === 'clear') item.fee = '';
       });
       saveDatabase();
       reRenderCurrentTable();
@@ -1311,7 +1344,6 @@
       });
     }
 
-    // 初期化実行
     initDatabase();
   </script>
 </body>
