@@ -97,7 +97,6 @@
     .print-footer-grid > div { padding: 8px; border-right: 1px solid #94a3b8; }
     .print-footer-grid > div:last-child { border-right: none; }
 
-    /* 応援スケジュール専用グリッド */
     .player-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 15px;
     }
@@ -109,7 +108,6 @@
     .badge { padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
     .badge-orange { background: #ffedd5; color: #c2410c; }
     .badge-green { background: #dcfce7; color: #15803d; }
-    .badge-blue { background: #e0f2fe; color: #0369a1; }
     .badge-gray { background: #f1f5f9; color: #475569; }
 
     .btn {
@@ -154,7 +152,7 @@
 <body>
 
   <header>
-    <div class="version-tag">ver 1.3.1</div>
+    <div class="version-tag">ver 1.3.2</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 運営・帳票作成ツール</p>
   </header>
@@ -189,7 +187,6 @@
       <div class="card">
         <h2>📩 らくらく連絡網 配信文作成</h2>
 
-        <!-- 発信者・シーン設定 -->
         <div class="form-row">
           <div class="form-group">
             <label>配信シーン選択</label>
@@ -228,7 +225,7 @@
         <h2>📁 調整さん集計CSVの読み込み ＆ 設定</h2>
         
         <div class="dropzone" onclick="document.getElementById('csv-input').click()">
-          <p>📄 <b>ここに調整さんCSVファイルをドラッグ＆ドロップ</b><br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてファイルを選択</span></p>
+          <p>📄 <b>ここに調整さんCSVファイルをドラッグ＆ドロップ</b><br><span style="font-size: 0.8rem; color: var(--text-muted);">またはクリックしてファイルを選択（縦型・横型どちらも自動解析）</span></p>
           <input type="file" id="csv-input" accept=".csv" onchange="handleCsvSelect(event)">
         </div>
 
@@ -608,7 +605,54 @@
       setTimeout(() => toast.style.opacity = '0', 2500);
     }
 
-    // 調整さんCSV読込 & エントリーリスト生成
+    // 堅牢な標準CSVパーサー（引用符内の改行・カンマに完全対応）
+    function parseCSVToRows(text) {
+      const rows = [];
+      let currentRow = [];
+      let currentCell = '';
+      let inQuotes = false;
+      let i = 0;
+
+      while (i < text.length) {
+        const char = text[i];
+        const nextChar = (i + 1 < text.length) ? text[i + 1] : '';
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            currentCell += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          currentRow.push(currentCell.trim());
+          currentCell = '';
+        } else if ((char === '\r' || char === '\n') && !inQuotes) {
+          if (char === '\r' && nextChar === '\n') {
+            i++;
+          }
+          currentRow.push(currentCell.trim());
+          if (currentRow.some(c => c !== '')) {
+            rows.push(currentRow);
+          }
+          currentRow = [];
+          currentCell = '';
+        } else {
+          currentCell += char;
+        }
+        i++;
+      }
+
+      if (currentCell || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(c => c !== '')) {
+          rows.push(currentRow);
+        }
+      }
+      return rows;
+    }
+
+    // 調整さんCSV読込 & エントリーリスト生成（縦型・横型両対応）
     function handleCsvSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -621,85 +665,178 @@
     }
 
     function parseCSV(text, filename) {
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      const rows = parseCSVToRows(text);
+      if (!rows || rows.length === 0) {
+        alert('CSVファイルが空です。');
+        return;
+      }
+
       let headerIdx = -1;
-      let headers = [];
-      
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('参加者') || lines[i].includes('日程') || lines[i].includes('氏名')) {
+      let isHorizontal = false;
+
+      // ヘッダー行の厳密検索
+      for (let i = 0; i < rows.length; i++) {
+        const first = rows[i][0] ? rows[i][0].trim() : '';
+        if (first === '参加者' || first === '氏名' || first === '名前' || first === '選手名') {
           headerIdx = i;
-          headers = lines[i].split(',').map(h => h.replace(/"/g, '').trim());
+          isHorizontal = false;
+          break;
+        } else if (first === '日程' && rows[i].length > 1) {
+          headerIdx = i;
+          isHorizontal = true;
           break;
         }
       }
 
+      // フォールバック検索
       if (headerIdx === -1) {
-        alert('CSV内に「参加者」ヘッダーが見つかりませんでした。');
+        for (let i = 0; i < rows.length; i++) {
+          if (rows[i].length >= 3 && rows[i].some(c => c === '参加者' || c === '日程')) {
+            headerIdx = i;
+            isHorizontal = (rows[i][0] === '日程');
+            break;
+          }
+        }
+      }
+
+      if (headerIdx === -1) {
+        alert('調整さんCSVのヘッダー（「参加者」または「日程」列）が見つかりませんでした。');
         return;
       }
 
+      const headers = rows[headerIdx].map(h => h.replace(/"/g, '').trim());
       hasRelayInCsv = headers.some(h => h.includes('リレー') || h.includes('4×100'));
 
       const parsedData = [];
       let maleCount = 0;
       let femaleCount = 0;
 
-      for (let i = headerIdx + 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
-        if (cols.length < 2) continue;
+      if (!isHorizontal) {
+        // 【縦型フォーマット】 行＝選手、列＝種目
+        for (let i = headerIdx + 1; i < rows.length; i++) {
+          const row = rows[i].map(c => c.replace(/"/g, '').trim());
+          if (row.length < 2) continue;
 
-        const rawName = cols[0];
-        if (!rawName || rawName === 'コメント') continue;
+          const rawName = row[0];
+          if (!rawName || rawName === 'コメント' || rawName === '合計' || rawName === '平均') continue;
 
-        const gradeMatch = rawName.match(/^([1-6１-６年]+)\s*(.+)$/);
-        const grade = gradeMatch ? gradeMatch[1].replace(/[１-６]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)) : '-';
-        let name = gradeMatch ? gradeMatch[2] : rawName;
+          const events = [];
+          let relayWanted = '';
+          const comment = row[row.length - 1] || '';
+          const isSchool = comment.includes('学校') || comment.includes('荒川') || comment.includes('船場');
 
-        const events = [];
-        let relayWanted = '';
-        let comment = cols[cols.length - 1] || '';
-        let isSchool = comment.includes('学校') || comment.includes('荒川') || comment.includes('船場');
-
-        for (let j = 1; j < cols.length - 1; j++) {
-          const colHeader = headers[j];
-          const val = cols[j];
-          if (val === '◯' || val === 'O' || val === '○') {
-            if (colHeader.includes('リレー') || colHeader.includes('4×100')) {
-              relayWanted = '◯';
-            } else if (!colHeader.includes('不参加')) {
-              events.push(colHeader);
+          for (let j = 1; j < row.length - 1; j++) {
+            if (j >= headers.length) continue;
+            const colHeader = headers[j];
+            const val = row[j];
+            if (['◯', 'O', '○', 'o', '0', '1', '◎'].includes(val)) {
+              if (colHeader.includes('リレー') || colHeader.includes('4×100')) {
+                relayWanted = '◯';
+                hasRelayInCsv = true;
+              } else if (!colHeader.includes('不参加')) {
+                events.push(colHeader);
+              }
             }
           }
-        }
 
-        if (events.length > 0) {
-          let gender = '女';
-          if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介')) {
-            gender = '男';
-            maleCount++;
-          } else {
-            femaleCount++;
+          if (events.length > 0 || relayWanted) {
+            const gradeMatch = rawName.match(/^([1-6１-６年]+)\s*(.+)$/);
+            const grade = gradeMatch ? gradeMatch[1].replace(/[１-６]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)) : '-';
+            const name = gradeMatch ? gradeMatch[2] : rawName;
+
+            let gender = '女';
+            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵')) {
+              gender = '男';
+              maleCount++;
+            } else {
+              femaleCount++;
+            }
+
+            parsedData.push({
+              grade: grade,
+              name: `${name} (${gender}子)`,
+              events: events.join(', '),
+              relay: relayWanted,
+              isSchool: isSchool ? '学校より参加' : '',
+              comment: comment
+            });
           }
-
-          parsedData.push({
-            grade: grade,
-            name: `${name} (${gender}子)`,
-            events: events.join(', '),
-            relay: relayWanted,
-            isSchool: isSchool ? '学校より参加' : '',
-            comment: comment
-          });
         }
+      } else {
+        // 【横型フォーマット】 1行目＝選手名、2行目以降＝種目
+        const memberNames = headers.slice(1);
+        const memberEvents = {};
+        const memberRelays = {};
+        const memberComments = {};
+        memberNames.forEach(n => { memberEvents[n] = []; memberRelays[n] = ''; memberComments[n] = ''; });
+
+        for (let i = headerIdx + 1; i < rows.length; i++) {
+          const row = rows[i].map(c => c.replace(/"/g, '').trim());
+          if (row.length === 0) continue;
+          const eventName = row[0];
+
+          if (eventName === 'コメント') {
+            memberNames.forEach((n, idx) => {
+              if (idx + 1 < row.length) memberComments[n] = row[idx + 1];
+            });
+          } else {
+            memberNames.forEach((n, idx) => {
+              if (idx + 1 < row.length) {
+                const val = row[idx + 1];
+                if (['◯', 'O', '○', 'o', '0', '1', '◎'].includes(val)) {
+                  if (eventName.includes('リレー') || eventName.includes('4×100')) {
+                    memberRelays[n] = '◯';
+                    hasRelayInCsv = true;
+                  } else if (!eventName.includes('不参加')) {
+                    memberEvents[n].push(eventName);
+                  }
+                }
+              }
+            });
+          }
+        }
+
+        memberNames.forEach(rawName => {
+          const events = memberEvents[rawName] || [];
+          const relayWanted = memberRelays[rawName] || '';
+          const comment = memberComments[rawName] || '';
+
+          if (events.length > 0 || relayWanted) {
+            const gradeMatch = rawName.match(/^([1-6１-６年]+)\s*(.+)$/);
+            const grade = gradeMatch ? gradeMatch[1].replace(/[１-６]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)) : '-';
+            const name = gradeMatch ? gradeMatch[2] : rawName;
+            const isSchool = comment.includes('学校') || comment.includes('荒川') || comment.includes('船場');
+
+            let gender = '女';
+            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵')) {
+              gender = '男';
+              maleCount++;
+            } else {
+              femaleCount++;
+            }
+
+            parsedData.push({
+              grade: grade,
+              name: `${name} (${gender}子)`,
+              events: events.join(', '),
+              relay: relayWanted,
+              isSchool: isSchool ? '学校より参加' : '',
+              comment: comment
+            });
+          }
+        });
       }
 
       parsedData.sort((a, b) => b.grade.localeCompare(a.grade));
       globalParsedEntries = parsedData;
 
-      const inferredTitle = lines[0].replace(/"/g, '').trim();
-      document.getElementById('custom-event-title').value = inferredTitle.length > 3 ? inferredTitle : filename.replace('.csv','');
+      // 大会タイトルの自動設定
+      const inferredTitle = rows[0] && rows[0][0] ? rows[0][0].replace(/["【】]/g, '').trim() : '';
+      document.getElementById('custom-event-title').value = (inferredTitle.length > 3 && !inferredTitle.includes('下記')) ? inferredTitle : filename.replace('.csv','');
       updatePrintHeader();
 
       renderEntryTableUI(parsedData, maleCount, femaleCount);
+      showToast(`${parsedData.length}名の選手データを読み込みました！`);
     }
 
     function updatePrintHeader() {
@@ -812,7 +949,6 @@
         });
       });
 
-      // 選手別エントリー一覧の描画
       const grid = document.getElementById('tt-player-grid');
       grid.innerHTML = '';
       playersSet.forEach((events, name) => {
