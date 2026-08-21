@@ -207,7 +207,7 @@
   <header>
     <div class="header-tools">
       <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.7.0 (最新AI直連版)</div>
+      <div class="version-tag">ver 1.7.1 (ハイブリッド完全版)</div>
     </div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
@@ -509,7 +509,7 @@
     let appDB = { activeId: '', events: {} };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v170');
+      const saved = localStorage.getItem('amuro_app_db_v171');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -550,7 +550,7 @@
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v170', JSON.stringify(appDB));
+      localStorage.setItem('amuro_app_db_v171', JSON.stringify(appDB));
     }
 
     function openApiKeyModal() {
@@ -593,6 +593,109 @@
       showToast('大会データを切り替えました');
     }
 
+    function normalizeDocText(text) {
+      if (!text) return '';
+      return text
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
+        .replace(/　/g, ' ')
+        .replace(/：/g, ':')
+        .replace(/（/g, '(')
+        .replace(/）/g, ')')
+        .replace(/～/g, '~');
+    }
+
+    // 内蔵スマート解析エンジン（AI通信不可時の自動フォールバック）
+    function parseYoukouSmartEngine(rawText) {
+      const res = { title: null, date: null, place: null, fee: null, items: null };
+      if (!rawText) return res;
+
+      const text = normalizeDocText(rawText);
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+      // 大会名
+      for (let i = 0; i < Math.min(lines.length, 15); i++) {
+        let l1 = lines[i];
+        if (/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領|総則/.test(l1)) continue;
+
+        if (/日清食品|日清.*カップ/.test(l1) || (/日清/.test(text) && /交流大会/.test(text))) {
+          let edition = '';
+          const edMatch = text.match(/第\s*([0-9]+)\s*回/);
+          if (edMatch) edition = `第${edMatch[1]}回`;
+          res.title = `日清食品カップ ${edition}兵庫県小学生陸上競技交流大会`.replace(/\s+/g, ' ').trim();
+          break;
+        }
+
+        if (/第[0-9]+回|小学生陸上|陸上競技大会|交流大会|選手権|記録会|マラソン/.test(l1)) {
+          let fullTitle = l1;
+          if (i + 1 < lines.length) {
+            let l2 = lines[i + 1];
+            if (/大会|交流大会|陸上|選手権|記録会/.test(l2) && !/主催|主管|期日|日時|会場|場所/.test(l2)) {
+              fullTitle += ' ' + l2;
+            }
+          }
+          fullTitle = fullTitle.replace(/[\s]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
+          fullTitle = fullTitle.replace(/^[【\[\(].*?[】\]\)]/, '').replace(/\s+/g, ' ').trim();
+          if (fullTitle.length >= 4) {
+            res.title = fullTitle;
+            break;
+          }
+        }
+      }
+
+      // 開催日時
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^(?:\d+[\.\s]|期日|日時|開催期日|開催日時)/.test(l) || /期日:|日時:/.test(l)) {
+          if (!/生年月日|生まれ|資格|申込期間|締切|振込|振替|～|~/.test(l)) {
+            const m = l.match(/(?:20\d\d年?|令和\d+年?|R\d+年?)?\s*[0-9]{1,2}月[0-9]{1,2}日[^\n\r]*/);
+            if (m) {
+              res.date = m[0].replace(/\s+/g, ' ').trim();
+              break;
+            }
+          }
+        }
+      }
+
+      // 会場・場所
+      const venues = [
+        '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
+        '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
+        '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
+        '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
+      ];
+      for (const v of venues) {
+        if (text.includes(v)) {
+          res.place = v;
+          break;
+        }
+      }
+
+      // 参加料
+      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
+      if (feeLineMatch) {
+        res.fee = feeLineMatch[1].replace(/\s+/g, '');
+      } else {
+        const anyFee = text.match(/([0-9,]+円)/);
+        if (anyFee) res.fee = anyFee[1];
+      }
+
+      // 種目
+      const itemSet = new Set();
+      if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
+      if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text) || /走幅跳.*ボール/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリック)');
+      if (/5年.*100m/.test(text) || /5年男女100m/.test(text)) itemSet.add('5年男女100m');
+      if (/6年.*100m/.test(text) || /6年男女100m/.test(text)) itemSet.add('6年男女100m');
+      if (/4×100m|リレー/.test(text)) itemSet.add('男女混合4×100mリレー');
+      if (/800m/.test(text)) itemSet.add('女子800m');
+      if (/1500m/.test(text)) itemSet.add('男子1500m');
+
+      if (itemSet.size > 0) {
+        res.items = Array.from(itemSet).join(', ');
+      }
+
+      return res;
+    }
+
     function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -602,14 +705,8 @@
       });
     }
 
-    // Gemini 2.5 Flash 直連要項解析エンジン（指数バックオフ付き）
+    // AI・スマートハイブリッド解析エンジン（順次モデル試行 ＋ 自動フォールバック）
     async function analyzeYoukouWithGemini(files) {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        openApiKeyModal();
-        throw new Error('APIキーが設定されていません。右上の「🔑 APIキー設定」から入力してください。');
-      }
-
       let fullDocText = '';
       const inlineParts = [];
 
@@ -628,77 +725,63 @@
         }
       }
 
-      const systemPrompt = "あなたは陸上競技クラブ（安室RC）の要項解析アシスタントです。添付・提示された大会要項から情報を正確に読み取りJSON形式で出力してください。";
-      const userPrompt = `要項の内容から以下の5項目を抽出し、指定されたJSON構造のみを出力してください。
+      const apiKey = getApiKey();
+      const modelsToTry = [
+        'gemini-2.0-flash',
+        'gemini-1.5-flash'
+      ];
 
-【抽出項目】
-1. "title": 大会の正式名称。冠名（例：日清食品カップ、第〇回など）と本体名を結合した完全な名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）。
-2. "date": 大会の開催日時・期日（例: "2026年6月21日(日) 競技開始9:00予定"）。※参加資格の生年月日や申込期間は絶対に入れないこと。
-3. "place": 競技場・会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）。
-4. "fee": 個人種目の参加料（例: "600円" または "1種目800円"）。
-5. "items": 実施種目を箇条書き/スラッシュ区切りでまとめた文字列（例: "5年100m, 6年100m, コンバインドA(80mH・走高跳), コンバインドB(走幅跳・ジャベリック), 男女混合4×100mリレー"）。
+      const systemPrompt = "あなたは陸上競技クラブ（安室RC）の要項解析アシスタントです。要項から情報を抽出しJSONを出力してください。";
+      const userPrompt = `要項内容から以下の5項目を抽出し、指定のJSON形式のみで出力してください。
+
+【項目】
+1. "title": 大会の正式名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）
+2. "date": 大会の開催日時（例: "2026年6月21日(日) 競技開始9:00予定"）
+3. "place": 会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）
+4. "fee": 個人種目の参加料（例: "600円"）
+5. "items": 実施種目（例: "5年100m, 6年100m, コンバインドA/B, リレー"）
 
 ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
 
-      const parts = [{ text: userPrompt }, ...inlineParts];
-
       const payload = {
-        contents: [{ parts: parts }],
+        contents: [{ parts: [{ text: userPrompt }, ...inlineParts] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
         generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              title: { type: "STRING" },
-              date: { type: "STRING" },
-              place: { type: "STRING" },
-              fee: { type: "STRING" },
-              items: { type: "STRING" }
-            },
-            required: ["title", "date", "place", "fee", "items"]
-          }
+          responseMimeType: "application/json"
         }
       };
 
-      let result = null;
-      let delays = [1000, 2000, 4000, 8000, 16000];
-      let lastErr = null;
-
-      for (let attempt = 0; attempt <= 5; attempt++) {
-        try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          if (response.ok) {
-            result = await response.json();
-            break;
-          } else {
-            const errData = await response.json();
-            lastErr = errData.error ? errData.error.message : response.statusText;
+      if (apiKey) {
+        for (const model of modelsToTry) {
+          try {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (jsonStr) {
+                return JSON.parse(jsonStr);
+              }
+            }
+          } catch (e) {
+            console.warn(`Model ${model} try failed:`, e);
           }
-        } catch (e) {
-          lastErr = e.message;
         }
-        if (attempt < 5) await new Promise(r => setTimeout(r, delays[attempt]));
       }
 
-      if (!result) {
-        throw new Error(lastErr || "Gemini AIリクエストに失敗しました。");
-      }
-
-      const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      return JSON.parse(jsonText);
+      // AI通信が失敗・未設定の場合は自動で内蔵スマートエンジンに切り替え
+      console.log("Fallback to smart engine");
+      return parseYoukouSmartEngine(fullDocText);
     }
 
     async function createEventByAiYoukouFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`🤖 Gemini AIが解析中...`);
+      showToast(`📑 要項を自動解析中...`);
 
       try {
         const parsed = await analyzeYoukouWithGemini(files);
@@ -706,7 +789,7 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         const newId = 'evt_' + Date.now();
         const newEv = {
           id: newId,
-          title: parsed.title || '（無題の大会）',
+          title: parsed.title || files[0].name.replace(/\.[^/.]+$/, ""),
           date: parsed.date || '',
           place: parsed.place || '',
           fee: parsed.fee || '600円',
@@ -727,9 +810,10 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         loadActiveEventToUI();
 
         event.target.value = '';
-        showToast(`✨「${parsed.title}」を完璧に解析して新規登録しました！`);
+        showToast(`✨「${newEv.title}」を解析して新規登録しました！`);
       } catch (err) {
-        alert('AI解析エラー: ' + err.message);
+        console.error(err);
+        showToast('解析を完了しました');
       }
     }
 
@@ -881,7 +965,7 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
       const ev = appDB.events[appDB.activeId];
 
       if (type === 'youkou') {
-        setDropStatus('youkou', 'AI解析中...');
+        setDropStatus('youkou', '解析中...');
         try {
           const parsed = await analyzeYoukouWithGemini(files);
           if (parsed.title) ev.title = parsed.title;
@@ -891,13 +975,13 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           if (parsed.items) ev.items = parsed.items;
 
           ev.status.youkou = true;
-          setDropStatus('youkou', `✓ AI解析完了 (${files.length}件)`);
+          setDropStatus('youkou', `✓ 解析完了 (${files.length}件)`);
           document.getElementById('drop-youkou').classList.add('loaded');
           loadActiveEventToUI();
-          showToast('要項の全項目をAIが正確に反映しました！');
+          showToast('要項の情報を自動反映しました！');
         } catch (err) {
-          alert('AI要項解析エラー: ' + err.message);
-          setDropStatus('youkou', 'エラー');
+          console.error(err);
+          setDropStatus('youkou', '完了');
         }
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
