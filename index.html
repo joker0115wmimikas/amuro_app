@@ -193,7 +193,7 @@
 <body>
 
   <header>
-    <div class="version-tag">ver 1.5.3</div>
+    <div class="version-tag">ver 1.5.4</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
   </header>
@@ -543,46 +543,70 @@
       showToast('大会データを切り替えました');
     }
 
-    // 高精度・セクション駆動型 要項パーサー
-    function parseYoukouSectionEngine(text) {
-      const res = { title: null, date: null, place: null, fee: null, items: null };
-      if (!text) return res;
+    // 全角・空白・記号の正規化ユーティリティ
+    function normalizeDocText(text) {
+      if (!text) return '';
+      return text
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
+        .replace(/　/g, ' ')
+        .replace(/：/g, ':')
+        .replace(/（/g, '(')
+        .replace(/）/g, ')')
+        .replace(/～/g, '~');
+    }
 
+    // 高精度・要項パーサー (日清カップ等の複数行タイトル・特殊レイアウトに完全対応)
+    function parseYoukouSectionEngine(rawText) {
+      const res = { title: null, date: null, place: null, fee: null, items: null };
+      if (!rawText) return res;
+
+      const text = normalizeDocText(rawText);
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-      // 1. 大会名の抽出
+      // 1. 大会正式名称の抽出（冠名＋本大会名の2行結合対応）
       for (let i = 0; i < Math.min(lines.length, 12); i++) {
-        let line = lines[i].replace(/^[【\[\(].*?[】\]\)]/, '').trim();
-        if (/大会|記録会|選手権|マラソン|競技会|スポーツ祭|陸上交流|カップ/.test(line)) {
-          if (!/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領/.test(line)) {
-            line = line.replace(/[\s　]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
-            line = line.replace(/[\s　]+/g, ' ');
-            if (line.length >= 4) {
-              res.title = line;
-              break;
+        let l1 = lines[i];
+        if (/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領|総則/.test(l1)) continue;
+
+        // 冠名（日清食品カップ、小学生陸上等）または大会名を発見
+        if (/日清食品|カップ|第[0-9]+回|小学生陸上|陸上競技大会|交流大会|選手権|記録会|マラソン/.test(l1)) {
+          let fullTitle = l1;
+          // 次の行も大会名の一部であるか確認（例: 1行目「日清食品カップ」 2行目「第40回兵庫県小学生陸上競技交流大会」）
+          if (i + 1 < lines.length) {
+            let l2 = lines[i + 1];
+            if (/大会|交流大会|陸上|選手権|記録会/.test(l2) && !/主催|主管|期日|日時|会場|場所/.test(l2)) {
+              fullTitle += ' ' + l2;
             }
+          }
+
+          fullTitle = fullTitle.replace(/[\s]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
+          fullTitle = fullTitle.replace(/^[【\[\(].*?[】\]\)]/, '').replace(/\s+/g, ' ').trim();
+          if (fullTitle.length >= 4) {
+            res.title = fullTitle;
+            break;
           }
         }
       }
 
-      // 2. 開催日時の抽出（生年月日・申込期間を除外）
+      // 2. 開催日時の抽出
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
-        if (/^(?:1[\.．\s]|2[\.．\s]|3[\.．\s]|期日|日時|開催日|開催日時|年月日|期\s*間)/.test(l) || /日時[：:]|期日[：:]/.test(l)) {
-          if (!/生年月日|生まれ|資格|申込期間|締切|振込/.test(l)) {
-            const m = l.match(/(?:20\d\d|令和\d+|R\d+)?\s*[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*/);
+        if (/^(?:\d+[\.\s]|期日|日時|開催期日|開催日時)/.test(l) || /期日:|日時:/.test(l)) {
+          if (!/生年月日|生まれ|資格|申込期間|締切|振込|振替/.test(l)) {
+            const m = l.match(/(?:20\d\d|令和\d+|R\d+)?\s*[0-9]{1,2}月[0-9]{1,2}日[^\n\r]*/);
             if (m) {
-              res.date = m[0].replace(/[\s　]+/g, ' ').trim();
+              res.date = m[0].replace(/\s+/g, ' ').trim();
               break;
             }
           }
         }
       }
 
-      // 3. 開催場所・会場の抽出（主要競技場照合＆見出し除外）
+      // 3. 開催場所・会場の抽出（姫路市陸上競技場・ウインク優先＆ラベル直下探索）
       const venues = [
-        'ウインク陸上競技場', '姫路市陸上競技場', '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場',
-        '三木総合防災公園', '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
+        '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
+        '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
+        '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
         '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
       ];
       for (const v of venues) {
@@ -594,8 +618,8 @@
       if (!res.place) {
         for (let i = 0; i < lines.length; i++) {
           const l = lines[i];
-          if (/^(?:場所|会場|開催場所)[：:\s]/.test(l)) {
-            const p = l.replace(/^(?:場所|会場|開催場所)[：:\s]*/, '').trim();
+          if (/^(?:場所|会場|開催場所|競技場)[:\s]/.test(l)) {
+            let p = l.replace(/^(?:場所|会場|開催場所|競技場)[:\s]*/, '').trim();
             if (p.length >= 3 && !p.includes('要項') && !p.includes('大会')) {
               res.place = p;
               break;
@@ -605,30 +629,31 @@
       }
 
       // 4. 参加料の抽出
-      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[：:\s]*([0-9０-９,]+円|[0-9０-９,]+　*円)/);
+      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
       if (feeLineMatch) {
         res.fee = feeLineMatch[1].replace(/\s+/g, '');
       } else {
-        const anyFee = text.match(/([0-9０-９,]+円)/);
+        const anyFee = text.match(/([0-9,]+円)/);
         if (anyFee) res.fee = anyFee[1];
       }
 
-      // 5. 競技種目の抽出（複数行の陸上種目を集約）
+      // 5. 競技種目の抽出（解説文・得点表ルールを除外して種目名のみ集約）
       const itemLines = [];
       let captureItems = false;
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
-        if (/(?:種目|競技種目|実施種目)[：:\s]/.test(l)) {
+        if (/(?:種目|競技種目|実施種目)[:\s]/.test(l)) {
           captureItems = true;
-          const inline = l.replace(/.*(?:種目|競技種目|実施種目)[：:\s]*/, '').trim();
-          if (inline && !inline.includes('下記') && !inline.includes('※')) itemLines.push(inline);
+          const inline = l.replace(/.*(?:種目|競技種目|実施種目)[:\s]*/, '').trim();
+          if (inline && !/下記|※|得点表|改訂|による/.test(inline)) itemLines.push(inline);
           continue;
         }
         if (captureItems) {
           if (/^(?:参加資格|表彰|日程|競技規則|申込方法|参加料|注意事項|\d+[\.．])/.test(l)) {
             break;
           }
-          if (/(?:100m|800m|1500m|50m|80mH|走幅跳|走高跳|リレー|4×100|コンバインド|ジャベ|ボール投)/.test(l)) {
+          if (/得点表|改訂|による|合計得点|資格|上限/.test(l)) continue;
+          if (/(?:100m|800m|1500m|50m|80mH|走幅跳|走高跳|リレー|4×100|コンバインド[AB]?|ジャベ|ボール投)/.test(l)) {
             itemLines.push(l.replace(/^[①-⑳\d\.\s・]+/, '').trim());
           }
         }
@@ -645,7 +670,7 @@
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`${files.length}件の要項ファイルを精密解析中...`);
+      showToast(`${files.length}件の要項ファイルを解析中...`);
       let combinedText = '';
       for (const f of files) {
         combinedText += (await extractFileText(f)) + '\n\n';
@@ -665,7 +690,7 @@
         title: title,
         date: parsed.date || '',
         place: parsed.place || '',
-        fee: parsed.fee || '600円',
+        fee: parsed.fee || '',
         items: parsed.items || '',
         url: '', limit: '',
         sender: document.getElementById('inp-sender').value || '久保',
@@ -683,7 +708,7 @@
       loadActiveEventToUI();
 
       event.target.value = '';
-      showToast(`「${title}」を解析して登録しました！`);
+      showToast(`「${title}」を解析して新規登録しました！`);
     }
 
     function createNewEvent() {
@@ -694,7 +719,7 @@
       appDB.events[newId] = {
         id: newId,
         title: name,
-        date: '', place: '', fee: '600円', items: '', url: '', limit: '',
+        date: '', place: '', fee: '', items: '', url: '', limit: '',
         sender: document.getElementById('inp-sender').value || '久保',
         status: { youkou: false, csv: false, schedule: false, startlist: false },
         entries: [],
@@ -905,7 +930,8 @@
     }
 
     function parseScheduleText(text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      const norm = normalizeDocText(text);
+      const lines = norm.split('\n').map(l => l.trim()).filter(l => l);
       const rows = [];
 
       lines.forEach(l => {
@@ -972,35 +998,35 @@
 
       if (type === '募集') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '令和8年度第1回三木小学生長距離記録会'}"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || ''}"></div>
           <div class="form-row">
-            <div class="form-group"><label>開催日時</label><input id="inp-date" value="${ev.date || '2026年5月6日（水・休） 競技開始10:00予定'}"></div>
-            <div class="form-group"><label>参加料</label><input id="inp-fee" value="${ev.fee || '600円'}"></div>
+            <div class="form-group"><label>開催日時</label><input id="inp-date" value="${ev.date || ''}"></div>
+            <div class="form-group"><label>参加料</label><input id="inp-fee" value="${ev.fee || ''}"></div>
           </div>
-          <div class="form-group"><label>開催場所</label><input id="inp-place" value="${ev.place || '三木総合防災公園第一陸上競技場（現地集合・解散）\n〒673-0516 三木市志染町三津田1708'}"></div>
-          <div class="form-group"><label>競技種目・対象</label><input id="inp-items" value="${ev.items || '男子800m（2年）、男子1500m（3～6年）、女子800m（2～6年）'}"></div>
-          <div class="form-group"><label>役員作成の調整さんURL</label><input id="inp-url" value="${ev.url || 'https://chouseisan.com/s/...'}"></div>
-          <div class="form-group"><label>申込期限</label><input id="inp-limit" value="${ev.limit || '4月11日（土）'}"></div>
+          <div class="form-group"><label>開催場所</label><input id="inp-place" value="${ev.place || ''}"></div>
+          <div class="form-group"><label>競技種目・対象</label><input id="inp-items" value="${ev.items || ''}"></div>
+          <div class="form-group"><label>役員作成の調整さんURL</label><input id="inp-url" value="${ev.url || ''}"></div>
+          <div class="form-group"><label>申込期限</label><input id="inp-limit" value="${ev.limit || ''}"></div>
         `;
       } else if (type === '前日') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '兵庫県小学生陸上競技春季記録会'}"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || ''}"></div>
           <div class="form-group"><label>集合時間・場所</label><input id="inp-time" value="7時30分 集合（サブトラ 時計の下あたり）"></div>
           <div class="form-group"><label>ゼッケン規定</label><input id="inp-bib" value="横24cm×縦16cmの白布（男子:黒字 / 女子:赤字、太さ2cm）、安全ピン8本"></div>
         `;
       } else if (type === '当日席') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '兵庫県小学生陸上競技大会'}"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || ''}"></div>
           <div class="form-group"><label>観覧・場所取り位置</label><input id="inp-seat" value="メインゲート(Cゲート)から入って、メインスタンド上側、添付画像の⑦あたり"></div>
         `;
       } else if (type === '当日速報') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '小学生陸上長距離記録会IN三木'}"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || ''}"></div>
           <div class="form-group"><label>案内補足</label><input id="inp-memo" value="※安室RCの選手は赤字で表記しています。自己ベストや目標タイムを目指しつつ、それぞれが良い経験になることを願っています！"></div>
         `;
       } else if (type === 'リザルト') {
         container.innerHTML = `
-          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || '小学生長距離記録会IN三木'}"></div>
+          <div class="form-group"><label>大会名</label><input id="inp-event" value="${ev.title || ''}"></div>
           <div class="form-group"><label>労いの言葉</label><textarea id="inp-comment" rows="3">本日は朝早くから記録会への参加、お疲れ様でした！\n絶好の気象条件の中でしたが、それぞれ納得のいく結果が出た子、悔しい思いをした子、様々かと思います。\nどんな結果であれ、受け止めて次に繋がる経験になれば嬉しいですね。</textarea></div>
         `;
       } else if (type === '練習中止') {
