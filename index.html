@@ -78,9 +78,18 @@
     /* テーブルスタイル */
     .table-container { overflow-x: auto; margin-top: 15px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { border: 1px solid #94a3b8; padding: 7px 10px; text-align: left; }
+    th, td { border: 1px solid #94a3b8; padding: 6px 8px; text-align: left; vertical-align: middle; }
     th { background: #f1f5f9; font-weight: bold; color: #334155; }
     tr:nth-child(even) { background: #f8fafc; }
+
+    /* 表内編集用インプット */
+    .table-input {
+      width: 100%; border: 1px solid transparent; background: transparent; padding: 4px;
+      font-size: 0.85rem; border-radius: 4px; transition: all 0.2s;
+    }
+    .table-input:hover { border-color: #cbd5e1; background: #ffffff; }
+    .table-input:focus { border-color: var(--primary); background: #ffffff; outline: none; box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2); }
+    .table-input-center { text-align: center; }
 
     /* PDF印刷用スタイル */
     .print-sheet {
@@ -120,7 +129,7 @@
     .btn-accent:hover { background: var(--accent-hover); }
     .btn-secondary { background: #e2e8f0; color: var(--text); }
     .btn-secondary:hover { background: #cbd5e1; }
-    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
 
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; color: var(--text-muted); }
@@ -146,13 +155,14 @@
       .card { border: none; box-shadow: none; padding: 0; margin-bottom: 0; }
       .print-sheet { border: none; padding: 0; }
       th { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; }
+      .table-input { border: none !important; padding: 0 !important; }
     }
   </style>
 </head>
 <body>
 
   <header>
-    <div class="version-tag">ver 1.3.2</div>
+    <div class="version-tag">ver 1.3.3</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 運営・帳票作成ツール</p>
   </header>
@@ -230,25 +240,11 @@
         </div>
 
         <!-- オプション設定パネル -->
-        <div class="options-panel" style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-top: 10px;">
+        <div class="options-panel" style="background: #f8fafc; padding: 14px; border-radius: 6px; border: 1px solid var(--border); margin-top: 10px;">
           <div class="form-row">
             <div class="form-group">
-              <label>大会名（PDFヘッダーに印字）</label>
+              <label>大会名（PDF上部に印字）</label>
               <input id="custom-event-title" placeholder="例: 第45回姫路市小学生陸上競技大会" oninput="updatePrintHeader()">
-            </div>
-            <div class="form-group">
-              <label>集金欄の印字設定</label>
-              <select id="fee-print-mode" onchange="reRenderCurrentTable()">
-                <option value="check">受領チェック欄のみ印字 (☐)</option>
-                <option value="fixed">一律金額で印字 (例: @600円)</option>
-                <option value="none">集金欄を表示しない</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group" id="fixed-fee-container" style="display: none;">
-              <label>一律集金金額</label>
-              <input id="fixed-fee-val" value="600円" oninput="reRenderCurrentTable()">
             </div>
             <div class="form-group">
               <label>リレー希望列の表示</label>
@@ -257,6 +253,18 @@
                 <option value="show">常に表示する</option>
                 <option value="hide">表示しない</option>
               </select>
+            </div>
+          </div>
+
+          <!-- 集金一括操作ツールバー -->
+          <div style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border);">
+            <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 6px;">💰 集金額の一括設定ツール（表の各セルで個別の手動打ち替えも可能です）</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <input id="quick-fee-val" value="600円" style="width: 110px; padding: 6px 8px; font-size: 0.85rem;" placeholder="金額">
+              <button class="btn btn-secondary btn-sm" onclick="applyQuickFee('all')">全選手にセット</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyQuickFee('by-count')">種目数 × 金額で計算</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyQuickFee('check')">受領チェック (☐) に戻す</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyQuickFee('clear')">空欄クリア</button>
             </div>
           </div>
         </div>
@@ -278,11 +286,11 @@
             <thead>
               <tr id="entry-table-head">
                 <th style="width: 10%;">学年</th>
-                <th style="width: 25%;">氏名</th>
-                <th style="width: 35%;">出場種目</th>
-                <th style="width: 15%;" id="th-relay">リレー希望</th>
-                <th style="width: 15%;" id="th-fee">集金</th>
-                <th style="width: 15%;">備考</th>
+                <th style="width: 24%;">氏名</th>
+                <th style="width: 34%;">出場種目</th>
+                <th style="width: 12%; text-align:center;" id="th-relay">リレー希望</th>
+                <th style="width: 10%; text-align:center;" id="th-fee">集金</th>
+                <th style="width: 10%;">備考</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -437,12 +445,9 @@
     let globalParsedEntries = [];
     let hasRelayInCsv = false;
 
-    // 役員名の保存・読み込み
     function loadSenderName() {
       const saved = localStorage.getItem('amuro_sender_name');
-      if (saved) {
-        document.getElementById('inp-sender').value = saved;
-      }
+      if (saved) document.getElementById('inp-sender').value = saved;
     }
 
     function saveSenderName() {
@@ -501,17 +506,28 @@
 
     function parseYoukouText(text) {
       if (!text || !text.trim()) return;
+
+      // 大会名
       const titleMatch = text.match(/(第[0-9０-９]+回[^\n\r]+大会|[^\n\r]+記録会|[^\n\r]+陸上競技大会|[^\n\r]+マラソン)/);
       if (titleMatch && document.getElementById('inp-event')) document.getElementById('inp-event').value = titleMatch[0].trim().replace(/\s+/g, ' ');
       
+      // 日時
       const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
       if (dateMatch && document.getElementById('inp-date')) document.getElementById('inp-date').value = dateMatch[0].trim().replace(/\s+/g, ' ');
       
+      // 場所
       const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場)/);
       if (placeMatch && document.getElementById('inp-place')) document.getElementById('inp-place').value = placeMatch[0].trim().replace(/\s+/g, ' ');
 
+      // 参加料
       const feeMatch = text.match(/([0-9０-９,]+円)/);
       if (feeMatch && document.getElementById('inp-fee')) document.getElementById('inp-fee').value = feeMatch[0].trim();
+
+      // 種目名・対象の抽出
+      const itemsMatch = text.match(/(?:競技種目|種目)[：:\s]*([^\n\r]+(?:\n[^\n\r■✅]+)*)/);
+      if (itemsMatch && document.getElementById('inp-items')) {
+        document.getElementById('inp-items').value = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
+      }
 
       showToast('要項から情報を抽出しました！');
     }
@@ -605,7 +621,7 @@
       setTimeout(() => toast.style.opacity = '0', 2500);
     }
 
-    // 堅牢な標準CSVパーサー（引用符内の改行・カンマに完全対応）
+    // 堅牢なCSV行分割パーサー
     function parseCSVToRows(text) {
       const rows = [];
       let currentRow = [];
@@ -628,13 +644,9 @@
           currentRow.push(currentCell.trim());
           currentCell = '';
         } else if ((char === '\r' || char === '\n') && !inQuotes) {
-          if (char === '\r' && nextChar === '\n') {
-            i++;
-          }
+          if (char === '\r' && nextChar === '\n') i++;
           currentRow.push(currentCell.trim());
-          if (currentRow.some(c => c !== '')) {
-            rows.push(currentRow);
-          }
+          if (currentRow.some(c => c !== '')) rows.push(currentRow);
           currentRow = [];
           currentCell = '';
         } else {
@@ -642,42 +654,32 @@
         }
         i++;
       }
-
       if (currentCell || currentRow.length > 0) {
         currentRow.push(currentCell.trim());
-        if (currentRow.some(c => c !== '')) {
-          rows.push(currentRow);
-        }
+        if (currentRow.some(c => c !== '')) rows.push(currentRow);
       }
       return rows;
     }
 
-    // 調整さんCSV読込 & エントリーリスト生成（縦型・横型両対応）
     function handleCsvSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
-      reader.onload = function(e) {
-        parseCSV(e.target.result, file.name);
-      };
+      reader.onload = function(e) { parseCSV(e.target.result, file.name); };
       reader.readAsText(file, 'UTF-8');
     }
 
     function parseCSV(text, filename) {
       const rows = parseCSVToRows(text);
-      if (!rows || rows.length === 0) {
-        alert('CSVファイルが空です。');
-        return;
-      }
+      if (!rows || rows.length === 0) { alert('CSVファイルが空です。'); return; }
 
       let headerIdx = -1;
       let isHorizontal = false;
 
-      // ヘッダー行の厳密検索
+      // ヘッダー行の検索
       for (let i = 0; i < rows.length; i++) {
         const first = rows[i][0] ? rows[i][0].trim() : '';
-        if (first === '参加者' || first === '氏名' || first === '名前' || first === '選手名') {
+        if (['参加者', '氏名', '名前', '選手名'].includes(first)) {
           headerIdx = i;
           isHorizontal = false;
           break;
@@ -688,7 +690,6 @@
         }
       }
 
-      // フォールバック検索
       if (headerIdx === -1) {
         for (let i = 0; i < rows.length; i++) {
           if (rows[i].length >= 3 && rows[i].some(c => c === '参加者' || c === '日程')) {
@@ -699,10 +700,7 @@
         }
       }
 
-      if (headerIdx === -1) {
-        alert('調整さんCSVのヘッダー（「参加者」または「日程」列）が見つかりませんでした。');
-        return;
-      }
+      if (headerIdx === -1) { alert('調整さんCSVのヘッダーが見つかりませんでした。'); return; }
 
       const headers = rows[headerIdx].map(h => h.replace(/"/g, '').trim());
       hasRelayInCsv = headers.some(h => h.includes('リレー') || h.includes('4×100'));
@@ -711,14 +709,19 @@
       let maleCount = 0;
       let femaleCount = 0;
 
+      const isPositive = (val) => {
+        if (!val) return false;
+        const v = val.trim();
+        return ['◯', 'O', '○', 'o', '0', '1', '◎', '参加', '出席', 'v', 'レ', '希望'].includes(v);
+      };
+
       if (!isHorizontal) {
-        // 【縦型フォーマット】 行＝選手、列＝種目
         for (let i = headerIdx + 1; i < rows.length; i++) {
           const row = rows[i].map(c => c.replace(/"/g, '').trim());
           if (row.length < 2) continue;
 
           const rawName = row[0];
-          if (!rawName || rawName === 'コメント' || rawName === '合計' || rawName === '平均') continue;
+          if (!rawName || ['コメント', '合計', '平均'].includes(rawName)) continue;
 
           const events = [];
           let relayWanted = '';
@@ -729,11 +732,12 @@
             if (j >= headers.length) continue;
             const colHeader = headers[j];
             const val = row[j];
-            if (['◯', 'O', '○', 'o', '0', '1', '◎'].includes(val)) {
+
+            if (isPositive(val)) {
               if (colHeader.includes('リレー') || colHeader.includes('4×100')) {
                 relayWanted = '◯';
                 hasRelayInCsv = true;
-              } else if (!colHeader.includes('不参加')) {
+              } else if (!colHeader.includes('不参加') && !colHeader.includes('学校から参加')) {
                 events.push(colHeader);
               }
             }
@@ -745,7 +749,7 @@
             const name = gradeMatch ? gradeMatch[2] : rawName;
 
             let gender = '女';
-            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵')) {
+            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵') || name.includes('馬')) {
               gender = '男';
               maleCount++;
             } else {
@@ -756,14 +760,16 @@
               grade: grade,
               name: `${name} (${gender}子)`,
               events: events.join(', '),
+              eventCount: events.length,
               relay: relayWanted,
+              fee: '',
               isSchool: isSchool ? '学校より参加' : '',
               comment: comment
             });
           }
         }
       } else {
-        // 【横型フォーマット】 1行目＝選手名、2行目以降＝種目
+        // 横型CSV
         const memberNames = headers.slice(1);
         const memberEvents = {};
         const memberRelays = {};
@@ -783,7 +789,7 @@
             memberNames.forEach((n, idx) => {
               if (idx + 1 < row.length) {
                 const val = row[idx + 1];
-                if (['◯', 'O', '○', 'o', '0', '1', '◎'].includes(val)) {
+                if (isPositive(val)) {
                   if (eventName.includes('リレー') || eventName.includes('4×100')) {
                     memberRelays[n] = '◯';
                     hasRelayInCsv = true;
@@ -808,7 +814,7 @@
             const isSchool = comment.includes('学校') || comment.includes('荒川') || comment.includes('船場');
 
             let gender = '女';
-            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵')) {
+            if (events.some(e => e.includes('男子') || e.includes('男')) || name.includes('太') || name.includes('翔') || name.includes('陽') || name.includes('新') || name.includes('介') || name.includes('葵') || name.includes('馬')) {
               gender = '男';
               maleCount++;
             } else {
@@ -819,7 +825,9 @@
               grade: grade,
               name: `${name} (${gender}子)`,
               events: events.join(', '),
+              eventCount: events.length,
               relay: relayWanted,
+              fee: '',
               isSchool: isSchool ? '学校より参加' : '',
               comment: comment
             });
@@ -830,7 +838,6 @@
       parsedData.sort((a, b) => b.grade.localeCompare(a.grade));
       globalParsedEntries = parsedData;
 
-      // 大会タイトルの自動設定
       const inferredTitle = rows[0] && rows[0][0] ? rows[0][0].replace(/["【】]/g, '').trim() : '';
       document.getElementById('custom-event-title').value = (inferredTitle.length > 3 && !inferredTitle.includes('下記')) ? inferredTitle : filename.replace('.csv','');
       updatePrintHeader();
@@ -852,33 +859,45 @@
       }
     }
 
+    // 集金一括操作
+    function applyQuickFee(mode) {
+      const baseFeeStr = document.getElementById('quick-fee-val').value || '600円';
+      const baseNum = parseInt(baseFeeStr.replace(/[^0-9]/g, '')) || 600;
+
+      globalParsedEntries.forEach(item => {
+        if (mode === 'all') {
+          item.fee = `${baseNum}円`;
+        } else if (mode === 'by-count') {
+          const count = item.eventCount || 1;
+          item.fee = `${baseNum * count}円`;
+        } else if (mode === 'check') {
+          item.fee = '☐';
+        } else if (mode === 'clear') {
+          item.fee = '';
+        }
+      });
+      reRenderCurrentTable();
+      showToast('集金額を一括更新しました！');
+    }
+
     function renderEntryTableUI(data, maleCount, femaleCount) {
-      const feeMode = document.getElementById('fee-print-mode').value;
-      const fixedFeeVal = document.getElementById('fixed-fee-val').value;
       const relayMode = document.getElementById('relay-col-mode').value;
-
-      document.getElementById('fixed-fee-container').style.display = (feeMode === 'fixed') ? 'block' : 'none';
-
       const showRelay = (relayMode === 'show') || (relayMode === 'auto' && hasRelayInCsv);
-      const showFee = (feeMode !== 'none');
 
       document.getElementById('th-relay').style.display = showRelay ? '' : 'none';
-      document.getElementById('th-fee').style.display = showFee ? '' : 'none';
 
       const tbody = document.querySelector('#entry-table tbody');
       tbody.innerHTML = '';
 
-      data.forEach(row => {
+      data.forEach((row, idx) => {
         const tr = document.createElement('tr');
-        let feeContent = (feeMode === 'fixed') ? fixedFeeVal : '☐';
-
         tr.innerHTML = `
           <td><b>${row.grade}</b></td>
           <td><b>${row.name}</b></td>
-          <td>${row.events}</td>
-          ${showRelay ? `<td style="text-align:center;">${row.relay || ''}</td>` : ''}
-          ${showFee ? `<td style="text-align:center;">${feeContent}</td>` : ''}
-          <td>${row.isSchool ? `<span class="badge badge-green">${row.isSchool}</span> ` : ''}${row.comment}</td>
+          <td><input class="table-input" value="${row.events}" oninput="globalParsedEntries[${idx}].events = this.value"></td>
+          ${showRelay ? `<td style="text-align:center;"><input class="table-input table-input-center" value="${row.relay || ''}" oninput="globalParsedEntries[${idx}].relay = this.value"></td>` : ''}
+          <td style="text-align:center;"><input class="table-input table-input-center" value="${row.fee || ''}" placeholder="例: 600円" oninput="globalParsedEntries[${idx}].fee = this.value"></td>
+          <td><input class="table-input" value="${row.isSchool ? row.isSchool + ' ' : ''}${row.comment}" oninput="globalParsedEntries[${idx}].comment = this.value"></td>
         `;
         tbody.appendChild(tr);
       });
@@ -891,7 +910,7 @@
       document.getElementById('entry-result-card').style.display = 'block';
     }
 
-    // 応援タイムテーブル関連
+    // 応援タイムテーブル
     function addTimelineRow() {
       const tbody = document.getElementById('tt-edit-tbody');
       const tr = document.createElement('tr');
@@ -936,7 +955,6 @@
         `;
         tbody.appendChild(tr);
 
-        // 選手カード集計
         players.split(',').forEach(pStr => {
           const clean = pStr.trim();
           if (clean) {
@@ -962,7 +980,6 @@
       });
     }
 
-    // 初期化
     loadSenderName();
     updateTemplateForm();
   </script>
