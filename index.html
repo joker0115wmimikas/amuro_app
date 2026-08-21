@@ -193,7 +193,7 @@
 <body>
 
   <header>
-    <div class="version-tag">ver 1.5.2</div>
+    <div class="version-tag">ver 1.5.3</div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
   </header>
@@ -203,7 +203,6 @@
     <span>🏆 進行中の大会:</span>
     <select id="event-select" onchange="changeActiveEvent()"></select>
     
-    <!-- 要項から自動新規作成（複数ファイル対応） -->
     <button class="btn btn-accent btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">📑 要項から新規作成</button>
     <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByYoukouFile(event)">
 
@@ -225,7 +224,6 @@
       <div class="card no-print">
         <h2>📁 STEP 1: 大会関連ファイルの投入（複数ファイル・写真の一括ドロップOK）</h2>
         <div class="drop-grid">
-          <!-- ① 要項 (複数選択対応) -->
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
             <div class="icon">📑</div>
             <div class="title">① 大会要項</div>
@@ -234,7 +232,6 @@
             <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple onchange="handleHubFile(event, 'youkou')">
           </div>
 
-          <!-- ② 調整さんCSV -->
           <div class="hub-dropzone" id="drop-csv" onclick="document.getElementById('input-csv').click()">
             <div class="icon">📄</div>
             <div class="title">② 調整さんCSV</div>
@@ -243,7 +240,6 @@
             <input type="file" id="input-csv" accept=".csv" onchange="handleHubFile(event, 'csv')">
           </div>
 
-          <!-- ③ 競技日程/タイテ (複数選択対応) -->
           <div class="hub-dropzone" id="drop-schedule" onclick="document.getElementById('input-schedule').click()">
             <div class="icon">⏱️</div>
             <div class="title">③ 競技日程・タイテ</div>
@@ -252,7 +248,6 @@
             <input type="file" id="input-schedule" accept=".pdf, .png, .jpg, .jpeg, .webp, .txt" multiple onchange="handleHubFile(event, 'schedule')">
           </div>
 
-          <!-- ④ スタートリスト (複数選択対応) -->
           <div class="hub-dropzone" id="drop-startlist" onclick="document.getElementById('input-startlist').click()">
             <div class="icon">📋</div>
             <div class="title">④ スタートリスト</div>
@@ -263,7 +258,7 @@
         </div>
       </div>
 
-      <!-- レイヤー2: 統合出力・編集レイヤー（サブタブ切り替え） -->
+      <!-- レイヤー2: 統合出力・編集レイヤー -->
       <div class="sub-tabs no-print">
         <button class="sub-tab-btn active" onclick="switchSubTab(event, 'sub-rakuraku')">📩 1. 連絡網 案内文作成</button>
         <button class="sub-tab-btn" onclick="switchSubTab(event, 'sub-entry')">📋 2. 出場申込リスト (PDF)</button>
@@ -325,7 +320,6 @@
             </div>
           </div>
 
-          <!-- 集金一括操作 -->
           <div style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border);">
             <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); display: block; margin-bottom: 6px;">💰 集金額の一括設定ツール（表の各セルで個別の直接入力も可能です）</label>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
@@ -483,10 +477,7 @@
   <div id="toast">コピーしました！</div>
 
   <script>
-    let appDB = {
-      activeId: '',
-      events: {}
-    };
+    let appDB = { activeId: '', events: {} };
 
     function initDatabase() {
       const saved = localStorage.getItem('amuro_app_db_v15');
@@ -552,46 +543,109 @@
       showToast('大会データを切り替えました');
     }
 
-    // 大会名クレンジング＆高精度抽出エンジン
-    function extractCleanTitleFromText(text) {
-      if (!text) return null;
+    // 高精度・セクション駆動型 要項パーサー
+    function parseYoukouSectionEngine(text) {
+      const res = { title: null, date: null, place: null, fee: null, items: null };
+      if (!text) return res;
+
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-      // 上部10行から大会名候補を優先スキャン
-      for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      // 1. 大会名の抽出
+      for (let i = 0; i < Math.min(lines.length, 12); i++) {
         let line = lines[i].replace(/^[【\[\(].*?[】\]\)]/, '').trim();
-        if (/大会|記録会|選手権|マラソン|競技会|スポーツ祭|陸上/.test(line)) {
-          // 不要な接尾辞を徹底除去
-          line = line.replace(/[\s　]*(?:参加者募集要項|参加者募集|実施要項|募集要項|要項|大会要項|の\s*ご?案内|の\s*お知らせ|について|スタートリスト|リザルト|タイムテーブル|競技日程).*$/, '').trim();
-          line = line.replace(/[\s　]+/g, ' ');
-          if (line.length >= 4 && !line.startsWith('下記') && !line.startsWith('日時')) {
-            return line;
+        if (/大会|記録会|選手権|マラソン|競技会|スポーツ祭|陸上交流|カップ/.test(line)) {
+          if (!/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領/.test(line)) {
+            line = line.replace(/[\s　]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
+            line = line.replace(/[\s　]+/g, ' ');
+            if (line.length >= 4) {
+              res.title = line;
+              break;
+            }
           }
         }
       }
 
-      // フォールバック（正規表現スキャン）
-      const patterns = [
-        /((?:令和|20\d\d|R\d)?[0-9０-９年度]*\s*(?:第[0-9０-９]+回)?\s*[^\n\r\t]+?(?:陸上競技大会|長距離記録会|春季記録会|秋季記録会|選手権大会|記録会[^\s]*|マラソン[^\s]*|競技大会|スポーツ大会))/,
-        /(第[0-9０-９]+回\s*[^\n\r\t]+?(?:大会|記録会))/
-      ];
-      for (const p of patterns) {
-        const m = text.match(p);
-        if (m) {
-          let t = m[1].replace(/[\s　]*(?:参加者募集要項|参加者募集|実施要項|募集要項|要項|大会要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
-          t = t.replace(/^[【\[\(].*?[】\]\)]/, '').replace(/[\s　]+/g, ' ').trim();
-          if (t.length >= 4) return t;
+      // 2. 開催日時の抽出（生年月日・申込期間を除外）
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/^(?:1[\.．\s]|2[\.．\s]|3[\.．\s]|期日|日時|開催日|開催日時|年月日|期\s*間)/.test(l) || /日時[：:]|期日[：:]/.test(l)) {
+          if (!/生年月日|生まれ|資格|申込期間|締切|振込/.test(l)) {
+            const m = l.match(/(?:20\d\d|令和\d+|R\d+)?\s*[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*/);
+            if (m) {
+              res.date = m[0].replace(/[\s　]+/g, ' ').trim();
+              break;
+            }
+          }
         }
       }
-      return null;
+
+      // 3. 開催場所・会場の抽出（主要競技場照合＆見出し除外）
+      const venues = [
+        'ウインク陸上競技場', '姫路市陸上競技場', '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場',
+        '三木総合防災公園', '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
+        '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
+      ];
+      for (const v of venues) {
+        if (text.includes(v)) {
+          res.place = v;
+          break;
+        }
+      }
+      if (!res.place) {
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          if (/^(?:場所|会場|開催場所)[：:\s]/.test(l)) {
+            const p = l.replace(/^(?:場所|会場|開催場所)[：:\s]*/, '').trim();
+            if (p.length >= 3 && !p.includes('要項') && !p.includes('大会')) {
+              res.place = p;
+              break;
+            }
+          }
+        }
+      }
+
+      // 4. 参加料の抽出
+      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[：:\s]*([0-9０-９,]+円|[0-9０-９,]+　*円)/);
+      if (feeLineMatch) {
+        res.fee = feeLineMatch[1].replace(/\s+/g, '');
+      } else {
+        const anyFee = text.match(/([0-9０-９,]+円)/);
+        if (anyFee) res.fee = anyFee[1];
+      }
+
+      // 5. 競技種目の抽出（複数行の陸上種目を集約）
+      const itemLines = [];
+      let captureItems = false;
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/(?:種目|競技種目|実施種目)[：:\s]/.test(l)) {
+          captureItems = true;
+          const inline = l.replace(/.*(?:種目|競技種目|実施種目)[：:\s]*/, '').trim();
+          if (inline && !inline.includes('下記') && !inline.includes('※')) itemLines.push(inline);
+          continue;
+        }
+        if (captureItems) {
+          if (/^(?:参加資格|表彰|日程|競技規則|申込方法|参加料|注意事項|\d+[\.．])/.test(l)) {
+            break;
+          }
+          if (/(?:100m|800m|1500m|50m|80mH|走幅跳|走高跳|リレー|4×100|コンバインド|ジャベ|ボール投)/.test(l)) {
+            itemLines.push(l.replace(/^[①-⑳\d\.\s・]+/, '').trim());
+          }
+        }
+      }
+      if (itemLines.length > 0) {
+        res.items = itemLines.join(' / ').replace(/\s+/g, ' ');
+      }
+
+      return res;
     }
 
-    // 要項ファイルから直接「新規大会」を作成（複数ファイル結合対応）
+    // 要項から新規大会作成
     async function createEventByYoukouFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`${files.length}件の要項ファイルを解析中...`);
+      showToast(`${files.length}件の要項ファイルを精密解析中...`);
       let combinedText = '';
       for (const f of files) {
         combinedText += (await extractFileText(f)) + '\n\n';
@@ -602,14 +656,18 @@
         return;
       }
 
-      const extractedTitle = extractCleanTitleFromText(combinedText);
-      const title = extractedTitle || files[0].name.replace(/\.[^/.]+$/, "").replace(/[\s_]*(?:要項|実施要項|案内)$/, '');
+      const parsed = parseYoukouSectionEngine(combinedText);
+      const title = parsed.title || files[0].name.replace(/\.[^/.]+$/, "").replace(/[\s_]*(?:要項|実施要項|案内)$/, '');
 
       const newId = 'evt_' + Date.now();
       const newEv = {
         id: newId,
         title: title,
-        date: '', place: '', fee: '600円', items: '', url: '', limit: '',
+        date: parsed.date || '',
+        place: parsed.place || '',
+        fee: parsed.fee || '600円',
+        items: parsed.items || '',
+        url: '', limit: '',
         sender: document.getElementById('inp-sender').value || '久保',
         status: { youkou: true, csv: false, schedule: false, startlist: false },
         entries: [],
@@ -618,18 +676,6 @@
         timetable: []
       };
 
-      const dateMatch = combinedText.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
-      if (dateMatch) newEv.date = dateMatch[0].trim().replace(/\s+/g, ' ');
-
-      const placeMatch = combinedText.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場)/);
-      if (placeMatch) newEv.place = placeMatch[0].trim().replace(/\s+/g, ' ');
-
-      const feeMatch = combinedText.match(/([0-9０-９,]+円)/);
-      if (feeMatch) newEv.fee = feeMatch[0].trim();
-
-      const itemsMatch = combinedText.match(/(?:競技種目|種目)[：:\s]*([^\n\r]+(?:\n[^\n\r■✅]+)*)/);
-      if (itemsMatch) newEv.items = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
-
       appDB.events[newId] = newEv;
       appDB.activeId = newId;
       saveDatabase();
@@ -637,7 +683,7 @@
       loadActiveEventToUI();
 
       event.target.value = '';
-      showToast(`「${title}」を自動作成しました！`);
+      showToast(`「${title}」を解析して登録しました！`);
     }
 
     function createNewEvent() {
@@ -782,7 +828,6 @@
       setTimeout(() => { document.title = originalTitle; }, 1000);
     }
 
-    // 大会ハブ：複数ファイル一括投入対応
     async function handleHubFile(event, type) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
@@ -792,10 +837,18 @@
         setDropStatus('youkou', '解析中...');
         let text = '';
         for (const f of files) text += (await extractFileText(f)) + '\n\n';
-        parseYoukouText(text);
+        
+        const parsed = parseYoukouSectionEngine(text);
+        if (parsed.title) ev.title = parsed.title;
+        if (parsed.date) ev.date = parsed.date;
+        if (parsed.place) ev.place = parsed.place;
+        if (parsed.fee) ev.fee = parsed.fee;
+        if (parsed.items) ev.items = parsed.items;
+
         ev.status.youkou = true;
         setDropStatus('youkou', `✓ ${files.length}件読込完了`);
         document.getElementById('drop-youkou').classList.add('loaded');
+        loadActiveEventToUI();
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
         const reader = new FileReader();
@@ -849,36 +902,6 @@
       } else {
         return await file.text();
       }
-    }
-
-    function parseYoukouText(text) {
-      if (!text || !text.trim()) return;
-      const ev = appDB.events[appDB.activeId];
-
-      const cleanTitle = extractCleanTitleFromText(text);
-      if (cleanTitle) {
-        ev.title = cleanTitle;
-        document.getElementById('custom-event-title').value = cleanTitle;
-        document.getElementById('tt-event-title').value = cleanTitle;
-        updatePrintHeader();
-      }
-
-      const dateMatch = text.match(/([0-9０-９]{4}年[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*|[0-9０-９]{1,2}月[0-9０-９]{1,2}日[^\n\r]*)/);
-      if (dateMatch) ev.date = dateMatch[0].trim().replace(/\s+/g, ' ');
-
-      const placeMatch = text.match(/(ウインク陸上競技場|三木総合防災公園[^\n\r]*|姫路市陸上競技場|[^\n\r]+競技場)/);
-      if (placeMatch) ev.place = placeMatch[0].trim().replace(/\s+/g, ' ');
-
-      const feeMatch = text.match(/([0-9０-９,]+円)/);
-      if (feeMatch) ev.fee = feeMatch[0].trim();
-
-      const itemsMatch = text.match(/(?:競技種目|種目)[：:\s]*([^\n\r]+(?:\n[^\n\r■✅]+)*)/);
-      if (itemsMatch) ev.items = itemsMatch[1].trim().replace(/\n+/g, ' / ').replace(/\s+/g, ' ');
-
-      saveDatabase();
-      renderEventSelector();
-      updateTemplateForm();
-      showToast('要項から大会情報を反映しました！');
     }
 
     function parseScheduleText(text) {
@@ -1270,16 +1293,10 @@
       if (!ev || !ev.entries) return;
 
       ev.entries.forEach(item => {
-        if (mode === 'all') {
-          item.fee = `${baseNum}円`;
-        } else if (mode === 'by-count') {
-          const count = item.eventCount || 1;
-          item.fee = `${baseNum * count}円`;
-        } else if (mode === 'check') {
-          item.fee = '☐';
-        } else if (mode === 'clear') {
-          item.fee = '';
-        }
+        if (mode === 'all') item.fee = `${baseNum}円`;
+        else if (mode === 'by-count') item.fee = `${baseNum * (item.eventCount || 1)}円`;
+        else if (mode === 'check') item.fee = '☐';
+        else if (mode === 'clear') item.fee = '';
       });
       saveDatabase();
       reRenderCurrentTable();
