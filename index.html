@@ -6,8 +6,6 @@
   <title id="app-page-title">安室RC役員アプリ</title>
   <!-- PDF.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Tesseract.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -29,21 +27,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; }
 
+    /* レスポンシブで被らないヘッダー */
     header {
       background: linear-gradient(135deg, #ea580c 0%, #9a3412 100%);
-      color: white; padding: 16px 20px; text-align: center;
+      color: white; padding: 14px 16px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      position: relative;
     }
-    header h1 { font-size: 1.35rem; margin-bottom: 2px; }
-    header p { font-size: 0.8rem; opacity: 0.9; }
-
-    .header-tools {
-      position: absolute; top: 10px; right: 16px; display: flex; gap: 8px; align-items: center;
+    .header-content {
+      max-width: 1020px; margin: 0 auto; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 8px;
     }
+    .header-title-area h1 { font-size: 1.25rem; line-height: 1.3; }
+    .header-title-area p { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; }
+    .header-tools { display: flex; align-items: center; gap: 8px; }
     .version-tag {
       font-size: 0.7rem; font-weight: bold; background: rgba(0, 0, 0, 0.25);
-      padding: 3px 8px; border-radius: 12px; letter-spacing: 0.5px; opacity: 0.9;
+      padding: 4px 8px; border-radius: 12px; letter-spacing: 0.5px; white-space: nowrap;
     }
 
     /* 大会選択バー */
@@ -69,15 +68,15 @@
     .tab-btn:hover { color: var(--primary); }
     .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #fff7ed; }
 
-    .container { max-width: 1020px; margin: 20px auto; padding: 0 16px; }
+    .container { max-width: 1020px; margin: 16px auto; padding: 0 14px; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
     .card {
-      background: var(--card-bg); border-radius: 10px; padding: 20px;
-      border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
+      background: var(--card-bg); border-radius: 10px; padding: 18px;
+      border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 16px;
     }
-    .card h2 { font-size: 1.05rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .card h2 { font-size: 1.02rem; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
 
     /* データ投入グリッド */
     .drop-grid {
@@ -146,7 +145,7 @@
     }
     .player-card-header { font-weight: bold; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; }
 
-    .badge { padding: 3px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: bold; display: inline-block; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+    .badge { padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: bold; display: inline-block; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; user-select: none; }
     .badge:hover { opacity: 0.85; transform: scale(1.02); }
     .badge-orange { background: #ffedd5; color: #c2410c; border-color: #fdba74; }
     .badge-blue { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
@@ -155,7 +154,7 @@
 
     .btn {
       padding: 8px 14px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
-      font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;
+      font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; white-space: nowrap;
     }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-hover); }
@@ -187,7 +186,7 @@
     }
     .toggle-btn {
       padding: 6px 14px; border: none; background: transparent; border-radius: 4px; font-size: 0.8rem;
-      font-weight: bold; cursor: pointer; color: var(--text-muted); transition: all 0.2s;
+      font-weight: bold; cursor: pointer; color: var(--text-muted); transition: all 0.2s; white-space: nowrap;
     }
     .toggle-btn.active {
       background: white; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -222,12 +221,16 @@
 <body>
 
   <header>
-    <div class="header-tools">
-      <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.8.7 (シンプル超洗練版)</div>
+    <div class="header-content">
+      <div class="header-title-area">
+        <h1>🏃 安室RC役員アプリ</h1>
+        <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
+      </div>
+      <div class="header-tools">
+        <div class="version-tag">ver 1.9.0</div>
+        <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 API設定</button>
+      </div>
     </div>
-    <h1>🏃 安室RC役員アプリ</h1>
-    <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
   </header>
 
   <!-- 大会選択・管理バー -->
@@ -472,7 +475,7 @@
 
     </div>
 
-    <!-- メインタブ2: 月間練習予定作成（シンプル超洗練版） -->
+    <!-- メインタブ2: 月間練習予定作成（シンプル洗練・完全自動判定版） -->
     <div id="tab-schedule-manager" class="tab-content">
       <div class="card no-print">
         <h2>📅 1. 競技場カレンダー読込 & AI自動判定</h2>
@@ -595,7 +598,7 @@
     <div class="modal-card">
       <h2 style="font-size: 1.1rem; margin-bottom: 12px;">🔑 Gemini APIキー設定</h2>
       <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-        Google AI Studioで取得したGemini APIキーを入力してください。<br>キーはブラウザ内（端末）にのみ安全に保存されます。
+        Google AI Studioで取得したAPIキーを入力・変更できます。<br>（初期状態で共有キーが内蔵されているため、そのままでも動作します）
       </p>
       <div class="form-group">
         <label>APIキー</label>
@@ -611,10 +614,13 @@
   <div id="toast">コピーしました！</div>
 
   <script>
+    // 共有用デフォルトキー（他の人が開いてもそのまま使えるよう内蔵）
+    const DEFAULT_SHARED_API_KEY = "AQ.Ab8RN6IgJ6EKtOKjVWw0a6e-GOiBKu3LuFfeI21PBawzq5jSiQ";
+
     let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: true };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v187');
+      const saved = localStorage.getItem('amuro_app_db_v190');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -662,7 +668,7 @@
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v187', JSON.stringify(appDB));
+      localStorage.setItem('amuro_app_db_v190', JSON.stringify(appDB));
     }
 
     function syncSenderName(name, updateEv = true) {
@@ -678,7 +684,7 @@
     }
 
     function openApiKeyModal() {
-      const savedKey = localStorage.getItem('amuro_gemini_api_key') || '';
+      const savedKey = localStorage.getItem('amuro_gemini_api_key') || DEFAULT_SHARED_API_KEY;
       document.getElementById('gemini-api-key-input').value = savedKey;
       document.getElementById('api-key-modal').classList.add('active');
     }
@@ -695,7 +701,8 @@
     }
 
     function getApiKey() {
-      return localStorage.getItem('amuro_gemini_api_key') || 'AQ.Ab8RN6IgJ6EKtOKjVWw0a6e-GOiBKu3LuFfeI21PBawzq5jSiQ';
+      const customKey = localStorage.getItem('amuro_gemini_api_key');
+      return (customKey && customKey.trim()) ? customKey.trim() : DEFAULT_SHARED_API_KEY;
     }
 
     function renderEventSelector() {
@@ -732,6 +739,7 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
+    // 画像ファイルを確実にJPEG正規化してBase64化する関数（AI認識率を極大化）
     function fileToNormalizedBase64(file) {
       return new Promise((resolve, reject) => {
         if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -777,7 +785,7 @@
     }
 
     /* -------------------------------------------------------------
-       安室RC特化：月間練習予定（シンプル超洗練版）
+       安室RC特化：月間練習予定（清掃自動連動 & 実物完全再現）
     ------------------------------------------------------------- */
     const PRACTICE_PLACES = [
       "サブトラ",
@@ -805,6 +813,7 @@
       "休み"
     ];
 
+    // 月初めのサブトラック練習日を自動特定して清掃文言を再計算するコア関数
     function recalculateCleaningSchedule() {
       const cleanMsg = appDB.isSummerTime 
         ? "※6時45分から公園清掃を実施します。" 
@@ -876,7 +885,6 @@
           let place = "サブトラ";
           let time = baseTime;
 
-          // 8月中旬（15日前後）はお盆休み初期設定
           if (month === 8 && day >= 12 && day <= 18) {
             place = "お盆休み";
             time = "";
@@ -931,7 +939,7 @@
                 <span class="badge ${item.place.includes('サブトラ') ? 'badge-blue' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'サブトラ')">サブトラ</span>
                 <span class="badge ${item.place.includes('北公園') ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, '野球場北公園')">北公園</span>
                 <span class="badge ${item.place.includes('ウインク') ? 'badge-green' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'ウインク競技場')">競技場</span>
-                <span class="badge ${item.place.includes('休み') ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'お盆休み')">お盆休み</span>
+                <span class="badge ${item.place.includes('お盆') ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'お盆休み')">お盆休み</span>
                 <span class="badge ${item.place === 'お休み' ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'お休み')">お休み</span>
               </div>
             </div>
@@ -976,7 +984,7 @@
       renderPracticeScheduleTable();
     }
 
-    // 競技場カレンダー写真/PDFのGemini AI高精度画像認識 & 自動判定エンジン
+    // 競技場カレンダー写真/PDFのGemini 2.5 Flash高精度画像認識 & 自動判定エンジン
     async function handleStadiumCalendarFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -988,11 +996,10 @@
       const apiKey = getApiKey();
       let aiResult = null;
 
-      if (apiKey) {
-        try {
-          const normFile = await fileToNormalizedBase64(file);
+      try {
+        const normFile = await fileToNormalizedBase64(file);
 
-          const prompt = `
+        const prompt = `
 あなたは陸上クラブ（安室RC）の運営責任者です。
 添付された競技場（ウインク陸上競技場・姫路市陸上競技場）の月間行事予定表・カレンダー画像（またはPDF）を隅々まで正確に読み取ってください。
 
@@ -1003,10 +1010,10 @@
    - サッカー、ラグビー、陸上教室、他競技、一般開放、空欄などの場合 ➔ place: "サブトラ"
    - 専用利用/貸切が確保されている場合 ➔ place: "ウインク競技場"
    - お盆期間（8/13〜8/16付近）で練習がない場合 ➔ place: "お盆休み"
-3. "month": カレンダーの対象月（数値、例: 8）
+3. "month": カレンダーの対象月（数値、例: 8 または 9）
 4. 出力は以下のJSONスキーマのみを厳格に出力してください。
 
-JSON形式:
+JSONスキーマ:
 {
   "month": 8,
   "saturdays": [
@@ -1021,46 +1028,42 @@ JSON形式:
 }
 `;
 
-          const payload = {
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inlineData: { mimeType: normFile.mimeType, data: normFile.data } }
-              ]
-            }],
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
-          };
-
-          const candidateModels = [
-            'gemini-2.5-flash-preview-09-2025',
-            'gemini-2.0-flash',
-            'gemini-1.5-flash'
-          ];
-
-          for (const m of candidateModels) {
-            try {
-              const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              if (resp.ok) {
-                const resJson = await resp.json();
-                const jsonText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (jsonText) {
-                  aiResult = JSON.parse(jsonText);
-                  break;
-                }
-              }
-            } catch (e) {
-              console.warn(m, e);
-            }
+        const payload = {
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: normFile.mimeType, data: normFile.data } }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
           }
-        } catch (err) {
-          console.error("AI Calendar parse error:", err);
+        };
+
+        const delays = [1000, 2000, 4000, 8000, 16000];
+        for (let attempt = 0; attempt <= 5; attempt++) {
+          try {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (resp.ok) {
+              const resJson = await resp.json();
+              const jsonText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (jsonText) {
+                aiResult = JSON.parse(jsonText);
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+          if (attempt < 5 && !aiResult) await new Promise(r => setTimeout(r, delays[attempt]));
         }
+      } catch (err) {
+        console.error("AI Calendar parse error:", err);
       }
 
       if (aiResult && aiResult.saturdays && aiResult.saturdays.length > 0) {
@@ -1279,12 +1282,6 @@ JSON形式:
       }
 
       const apiKey = getApiKey();
-      const modelsToTry = [
-        'gemini-2.5-flash-preview-09-2025',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash'
-      ];
-
       const userPrompt = `要項内容から以下の5項目を抽出し、JSON形式で出力してください。
 1. "title": 大会の正式名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）
 2. "date": 大会の開催日時（例: "2026年6月21日(日) 競技開始9:00予定"）
@@ -1299,23 +1296,23 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         generationConfig: { responseMimeType: "application/json" }
       };
 
-      if (apiKey) {
-        for (const model of modelsToTry) {
-          try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            if (resp.ok) {
-              const data = await resp.json();
-              const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (jsonStr) return JSON.parse(jsonStr);
-            }
-          } catch (e) {
-            console.warn(`Model ${model} try failed:`, e);
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (jsonStr) return JSON.parse(jsonStr);
           }
+        } catch (e) {
+          console.warn(e);
         }
+        if (attempt < 5) await new Promise(r => setTimeout(r, delays[attempt]));
       }
 
       return parseYoukouSmartEngine(fullDocText);
@@ -1560,9 +1557,6 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
-      } else if (file.type.startsWith('image/')) {
-        const result = await Tesseract.recognize(file, 'jpn');
-        return result.data.text;
       } else {
         return await file.text();
       }
