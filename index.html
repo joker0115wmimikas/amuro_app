@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title id="app-page-title">安室RC役員アプリ</title>
-  <!-- PDF.js CDN -->
+  <!-- PDF.js CDN (PDF高精度レンダリング) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -27,22 +27,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; }
 
-    /* レスポンシブで被らないヘッダー */
+    /* レスポンシブヘッダー */
     header {
       background: linear-gradient(135deg, #ea580c 0%, #9a3412 100%);
-      color: white; padding: 14px 16px;
+      color: white; padding: 14px 18px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .header-content {
       max-width: 1020px; margin: 0 auto; display: flex; justify-content: space-between;
-      align-items: center; flex-wrap: wrap; gap: 8px;
+      align-items: center; flex-wrap: wrap; gap: 10px;
     }
-    .header-title-area h1 { font-size: 1.25rem; line-height: 1.3; }
-    .header-title-area p { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; }
-    .header-tools { display: flex; align-items: center; gap: 8px; }
+    .header-title-area h1 { font-size: 1.25rem; line-height: 1.3; font-weight: 800; }
+    .header-title-area p { font-size: 0.75rem; opacity: 0.92; margin-top: 2px; }
+    .header-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .version-tag {
-      font-size: 0.7rem; font-weight: bold; background: rgba(0, 0, 0, 0.25);
-      padding: 4px 8px; border-radius: 12px; letter-spacing: 0.5px; white-space: nowrap;
+      font-size: 0.72rem; font-weight: bold; background: rgba(0, 0, 0, 0.28);
+      padding: 4px 10px; border-radius: 12px; letter-spacing: 0.5px; white-space: nowrap;
     }
 
     /* 大会選択バー */
@@ -84,7 +84,7 @@
     }
     .hub-dropzone {
       border: 2px dashed var(--border); border-radius: 8px; padding: 16px 12px; text-align: center;
-      background: #f8fafc; cursor: pointer; transition: all 0.2s; min-height: 110px; display: flex;
+      background: #f8fafc; cursor: pointer; transition: all 0.2s; min-height: 115px; display: flex;
       flex-direction: column; justify-content: center; align-items: center; position: relative;
     }
     .hub-dropzone:hover { border-color: var(--primary); background: #fff7ed; }
@@ -93,7 +93,7 @@
     .hub-dropzone .icon { font-size: 1.5rem; margin-bottom: 4px; }
     .hub-dropzone .title { font-size: 0.85rem; font-weight: bold; }
     .hub-dropzone .desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
-    .hub-dropzone .status { font-size: 0.7rem; font-weight: bold; color: var(--success); margin-top: 4px; }
+    .hub-dropzone .status { font-size: 0.72rem; font-weight: bold; color: var(--success); margin-top: 4px; }
 
     /* サブナビ */
     .sub-tabs {
@@ -207,6 +207,19 @@
       padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 3000;
     }
 
+    /* プログレスバー・ローディング表示 */
+    .ai-loading-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.8);
+      display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 4000;
+      color: white; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .ai-loading-overlay.active { opacity: 1; pointer-events: auto; }
+    .ai-spinner {
+      width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     @media print {
       header, .event-selector-bar, .nav-tabs, .sub-tabs, .drop-grid, .btn-group, .no-print, .version-tag, .options-panel { display: none !important; }
       body { background: white; color: black; padding: 0; }
@@ -220,6 +233,13 @@
 </head>
 <body>
 
+  <!-- AI処理中オーバーレイ -->
+  <div class="ai-loading-overlay" id="ai-loading">
+    <div class="ai-spinner"></div>
+    <h3 id="ai-loading-text" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 6px;">AIが画像を精密解析中...</h3>
+    <p style="font-size: 0.82rem; opacity: 0.85;">数秒ほどお待ちください</p>
+  </div>
+
   <header>
     <div class="header-content">
       <div class="header-title-area">
@@ -227,7 +247,7 @@
         <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
       </div>
       <div class="header-tools">
-        <div class="version-tag">ver 1.9.0</div>
+        <div class="version-tag">ver 2.0.0 (マルチモーダルAI完全版)</div>
         <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 API設定</button>
       </div>
     </div>
@@ -239,7 +259,7 @@
     <select id="event-select" onchange="changeActiveEvent()"></select>
     
     <button class="btn btn-purple btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">✨ AI要項から新規作成</button>
-    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByAiYoukouFile(event)">
+    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp, .heic" multiple style="display: none;" onchange="createEventByAiYoukouFile(event)">
 
     <button class="btn btn-secondary btn-sm" onclick="createNewEvent()">➕ 手動で新規作成</button>
     <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ 削除</button>
@@ -259,14 +279,14 @@
       
       <!-- レイヤー1: データ一括投入エリア -->
       <div class="card no-print">
-        <h2>📁 STEP 1: 大会関連ファイルの投入（AI自動解析）</h2>
+        <h2>📁 STEP 1: 大会関連ファイルの投入（AIマルチモーダル自動解析）</h2>
         <div class="drop-grid">
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
             <div class="icon">📑</div>
-            <div class="title">① 大会要項 (AI解析)</div>
+            <div class="title">① 大会要項 (AIビジョン解析)</div>
             <div class="desc">PDFまたは写真画像<br>(表裏2枚などの複数選択OK)</div>
             <div class="status" id="status-youkou"></div>
-            <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple onchange="handleHubFile(event, 'youkou')">
+            <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp, .heic" multiple onchange="handleHubFile(event, 'youkou')">
           </div>
 
           <div class="hub-dropzone" id="drop-csv" onclick="document.getElementById('input-csv').click()">
@@ -282,7 +302,7 @@
             <div class="title">③ 競技日程・タイテ</div>
             <div class="desc">PDF・写真またはテキスト<br>(開始時刻・招集時間を解析)</div>
             <div class="status" id="status-schedule"></div>
-            <input type="file" id="input-schedule" accept=".pdf, .png, .jpg, .jpeg, .webp, .txt" multiple onchange="handleHubFile(event, 'schedule')">
+            <input type="file" id="input-schedule" accept=".pdf, .png, .jpg, .jpeg, .webp, .txt, .heic" multiple onchange="handleHubFile(event, 'schedule')">
           </div>
 
           <div class="hub-dropzone" id="drop-startlist" onclick="document.getElementById('input-startlist').click()">
@@ -290,7 +310,7 @@
             <div class="title">④ スタートリスト</div>
             <div class="desc">公式PDFまたは写真<br>(組・レーン・番号を照合)</div>
             <div class="status" id="status-startlist"></div>
-            <input type="file" id="input-startlist" accept=".pdf, .png, .jpg, .jpeg, .webp, .txt" multiple onchange="handleHubFile(event, 'startlist')">
+            <input type="file" id="input-startlist" accept=".pdf, .png, .jpg, .jpeg, .webp, .txt, .heic" multiple onchange="handleHubFile(event, 'startlist')">
           </div>
         </div>
       </div>
@@ -475,7 +495,7 @@
 
     </div>
 
-    <!-- メインタブ2: 月間練習予定作成（シンプル洗練・完全自動判定版） -->
+    <!-- メインタブ2: 月間練習予定作成（AI画像認識・完全連動版） -->
     <div id="tab-schedule-manager" class="tab-content">
       <div class="card no-print">
         <h2>📅 1. 競技場カレンダー読込 & AI自動判定</h2>
@@ -620,7 +640,7 @@
     let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: true };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v190');
+      const saved = localStorage.getItem('amuro_app_db_v200');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -668,7 +688,15 @@
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v190', JSON.stringify(appDB));
+      localStorage.setItem('amuro_app_db_v200', JSON.stringify(appDB));
+    }
+
+    function showLoading(text = "AIが画像を精密解析中...") {
+      document.getElementById('ai-loading-text').innerText = text;
+      document.getElementById('ai-loading').classList.add('active');
+    }
+    function hideLoading() {
+      document.getElementById('ai-loading').classList.remove('active');
     }
 
     function syncSenderName(name, updateEv = true) {
@@ -739,23 +767,41 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
-    // 画像ファイルを確実にJPEG正規化してBase64化する関数（AI認識率を極大化）
-    function fileToNormalizedBase64(file) {
-      return new Promise((resolve, reject) => {
-        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-          const reader = new FileReader();
-          reader.onload = () => resolve({ data: reader.result.split(',')[1], mimeType: 'application/pdf' });
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-          return;
-        }
+    /* -------------------------------------------------------------
+       最重要：PDF＆画像ファイルを100%確実にJPEG画像化するエンジン
+    ------------------------------------------------------------- */
+    async function convertAnyFileToImages(file) {
+      // 1. PDFの場合：PDF.jsで全ページを高画質CanvasレンダリングしてJPEG化
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const typedarray = new Uint8Array(await file.arrayBuffer());
+        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+        const pageImages = [];
 
+        for (let i = 1; i <= Math.min(pdf.numPages, 4); i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 }); // 2倍高解像度
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          pageImages.push({
+            data: dataUrl.split(',')[1],
+            mimeType: 'image/jpeg'
+          });
+        }
+        return pageImages;
+      }
+
+      // 2. 写真・画像の場合：Image要素経由で確実にJPEG化・リサイズ
+      return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const maxDim = 1800;
+            const maxDim = 2000;
             let width = img.width;
             let height = img.height;
             if (width > maxDim || height > maxDim) {
@@ -772,16 +818,58 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-            resolve({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+            resolve([{ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' }]);
           };
           img.onerror = () => {
-            resolve({ data: e.target.result.split(',')[1], mimeType: file.type || 'image/jpeg' });
+            resolve([{ data: e.target.result.split(',')[1], mimeType: 'image/jpeg' }]);
           };
           img.src = e.target.result;
         };
-        reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+    }
+
+    /* -------------------------------------------------------------
+       Gemini 2.5 Flash API 通信コア（指数バックオフ＆構造化JSON）
+    ------------------------------------------------------------- */
+    async function callGeminiVisionAPI(parts, systemPrompt) {
+      const apiKey = getApiKey();
+      const payload = {
+        contents: [{ role: "user", parts: parts }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            const resData = await response.json();
+            const text = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              return JSON.parse(text);
+            }
+          } else {
+            const errJson = await response.json().catch(() => ({}));
+            lastError = errJson.error ? errJson.error.message : `HTTP ${response.status}`;
+          }
+        } catch (e) {
+          lastError = e.message;
+        }
+        if (attempt < 5) await new Promise(r => setTimeout(r, delays[attempt]));
+      }
+
+      throw new Error(lastError || "AIサーバーへの通信に失敗しました。");
     }
 
     /* -------------------------------------------------------------
@@ -813,7 +901,6 @@
       "休み"
     ];
 
-    // 月初めのサブトラック練習日を自動特定して清掃文言を再計算するコア関数
     function recalculateCleaningSchedule() {
       const cleanMsg = appDB.isSummerTime 
         ? "※6時45分から公園清掃を実施します。" 
@@ -984,27 +1071,22 @@
       renderPracticeScheduleTable();
     }
 
-    // 競技場カレンダー写真/PDFのGemini 2.5 Flash高精度画像認識 & 自動判定エンジン
+    // 競技場カレンダー写真/PDFのGemini 2.5 Flash直接ビジョン認識 & 自動判定エンジン
     async function handleStadiumCalendarFile(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      const statusEl = document.getElementById('status-stadium-calendar');
-      statusEl.innerText = 'AI精密解析中...';
-      showToast('🤖 AIがカレンダー写真を直接画像認識・判定中...');
-
-      const apiKey = getApiKey();
-      let aiResult = null;
+      showLoading("競技場カレンダーをAI画像認識中...");
 
       try {
-        const normFile = await fileToNormalizedBase64(file);
-
-        const prompt = `
-あなたは陸上クラブ（安室RC）の運営責任者です。
-添付された競技場（ウインク陸上競技場・姫路市陸上競技場）の月間行事予定表・カレンダー画像（またはPDF）を隅々まで正確に読み取ってください。
+        const imageItems = await convertAnyFileToImages(file);
+        const parts = [
+          {
+            text: `あなたは陸上クラブ（安室RC）の運営責任者です。
+添付されたウインク陸上競技場（姫路市陸上競技場）の月間行事予定表（カレンダー）の画像を精査してください。
 
 【安室RCの判定ルール】
-1. カレンダーに記載されている対象月（例: 8月や9月）の「すべての土曜日」の日付を抽出してください。
+1. カレンダーに記載されている対象月（例: 8月 または 9月）の「すべての土曜日」の日付を抽出してください。
 2. 各土曜日の行事・大会欄を確認し、以下のように判定してください：
    - 陸上大会、陸協記録会、選手権、総体、新人戦、交流大会、リレーカーニバル、学年別陸上などの「陸上競技大会」がある場合 ➔ place: "野球場北公園"（サブトラックがウォーミングアップ等で占有されるため使用不可）
    - サッカー、ラグビー、陸上教室、他競技、一般開放、空欄などの場合 ➔ place: "サブトラ"
@@ -1013,7 +1095,7 @@
 3. "month": カレンダーの対象月（数値、例: 8 または 9）
 4. 出力は以下のJSONスキーマのみを厳格に出力してください。
 
-JSONスキーマ:
+JSON形式:
 {
   "month": 8,
   "saturdays": [
@@ -1025,81 +1107,61 @@ JSONスキーマ:
       "place": "サブトラ"
     }
   ]
-}
-`;
-
-        const payload = {
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: normFile.mimeType, data: normFile.data } }
-            ]
-          }],
-          generationConfig: {
-            responseMimeType: "application/json"
+}`
           }
-        };
+        ];
 
-        const delays = [1000, 2000, 4000, 8000, 16000];
-        for (let attempt = 0; attempt <= 5; attempt++) {
-          try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-
-            if (resp.ok) {
-              const resJson = await resp.json();
-              const jsonText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (jsonText) {
-                aiResult = JSON.parse(jsonText);
-                break;
-              }
+        imageItems.forEach(img => {
+          parts.push({
+            inlineData: {
+              mimeType: img.mimeType,
+              data: img.data
             }
-          } catch (e) {
-            console.warn(e);
-          }
-          if (attempt < 5 && !aiResult) await new Promise(r => setTimeout(r, delays[attempt]));
-        }
-      } catch (err) {
-        console.error("AI Calendar parse error:", err);
-      }
-
-      if (aiResult && aiResult.saturdays && aiResult.saturdays.length > 0) {
-        if (aiResult.month) {
-          const currentYear = new Date().getFullYear();
-          document.getElementById('practice-month-input').value = `${currentYear}-${String(aiResult.month).padStart(2, '0')}`;
-        }
-
-        const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
-        const newPractices = [];
-
-        aiResult.saturdays.forEach(sat => {
-          let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラ");
-          let time = place.includes("休み") ? "" : baseTime;
-
-          newPractices.push({
-            date: sat.date,
-            time: time,
-            place: place,
-            memo: "",
-            hasCleaning: false
           });
         });
 
-        appDB.practices = newPractices;
-        recalculateCleaningSchedule();
-        saveDatabase();
-        renderPracticeScheduleTable();
-        statusEl.innerText = `✓ AI解析完了 (${newPractices.length}日分)`;
-        showToast('✨ AIがカレンダーを精密認識して場所と清掃を自動設定しました！');
-        return;
+        const systemPrompt = "あなたはカレンダー画像から正確に行事を読み取りJSONを返す専門AIです。";
+        const aiResult = await callGeminiVisionAPI(parts, systemPrompt);
+
+        if (aiResult && aiResult.saturdays && aiResult.saturdays.length > 0) {
+          if (aiResult.month) {
+            const currentYear = new Date().getFullYear();
+            document.getElementById('practice-month-input').value = `${currentYear}-${String(aiResult.month).padStart(2, '0')}`;
+          }
+
+          const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
+          const newPractices = [];
+
+          aiResult.saturdays.forEach(sat => {
+            let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラ");
+            let time = place.includes("休み") ? "" : baseTime;
+
+            newPractices.push({
+              date: sat.date,
+              time: time,
+              place: place,
+              memo: "",
+              hasCleaning: false
+            });
+          });
+
+          appDB.practices = newPractices;
+          recalculateCleaningSchedule();
+          saveDatabase();
+          renderPracticeScheduleTable();
+
+          hideLoading();
+          document.getElementById('status-stadium-calendar').innerText = `✓ AI解析完了 (${newPractices.length}日分)`;
+          showToast('✨ カレンダーから土曜日の大会有無を判定して練習場所を設定しました！');
+          return;
+        }
+      } catch (err) {
+        console.error("AI Calendar parse error:", err);
+        alert("カレンダーAI解析エラー: " + err.message);
       }
 
+      hideLoading();
       generateSaturdayPracticeRows(false);
-      statusEl.innerText = '✓ カレンダー展開完了';
-      showToast('土曜練習日を展開しました');
     }
 
     // らくらく連絡網 練習予定配信文の生成（シンプル超洗練版）
@@ -1163,169 +1225,56 @@ JSONスキーマ:
     }
 
     /* -------------------------------------------------------------
-       大会運営ハブ & 既存機能
+       大会要項のAIビジョン直接解析エンジン
     ------------------------------------------------------------- */
-    function normalizeDocText(text) {
-      if (!text) return '';
-      return text
-        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
-        .replace(/　/g, ' ')
-        .replace(/：/g, ':')
-        .replace(/（/g, '(')
-        .replace(/）/g, ')')
-        .replace(/～/g, '~');
-    }
+    async function analyzeYoukouWithGeminiVision(files) {
+      const parts = [
+        {
+          text: `あなたは陸上クラブ（安室RC）の運営責任者です。
+添付された大会要項（PDF/画像）の全内容を精査し、以下の5項目を抽出して指定のJSON形式のみを出力してください。
 
-    function parseYoukouSmartEngine(rawText) {
-      const res = { title: null, date: null, place: null, fee: null, items: null };
-      if (!rawText) return res;
+【抽出ルール】
+1. "title": 大会の正式名称。冠名（例：日清食品カップ、第〇回など）と本体名を結合した完全な名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）。
+2. "date": 大会の開催日時・期日（例: "2026年6月21日(日) 競技開始9:00予定"）。※参加資格の生年月日や申込期間は絶対に入れないこと。
+3. "place": 競技場・会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）。
+4. "fee": 個人種目の参加料（例: "600円" または "1種目800円"）。
+5. "items": 実施種目をわかりやすくまとめた文字列（例: "5年100m, 6年100m, コンバインドA(80mH・走高跳), コンバインドB(走幅跳・ジャベリック), 男女混合4×100mリレー"）。
 
-      const text = normalizeDocText(rawText);
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-
-      for (let i = 0; i < Math.min(lines.length, 15); i++) {
-        let l1 = lines[i];
-        if (/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領|総則/.test(l1)) continue;
-
-        if (/日清食品|日清.*カップ/.test(l1) || (/日清/.test(text) && /交流大会/.test(text))) {
-          let edition = '';
-          const edMatch = text.match(/第\s*([0-9]+)\s*回/);
-          if (edMatch) edition = `第${edMatch[1]}回`;
-          res.title = `日清食品カップ ${edition}兵庫県小学生陸上競技交流大会`.replace(/\s+/g, ' ').trim();
-          break;
+JSON形式:
+{
+  "title": "文字列",
+  "date": "文字列",
+  "place": "文字列",
+  "fee": "文字列",
+  "items": "文字列"
+}`
         }
-
-        if (/第[0-9]+回|小学生陸上|陸上競技大会|交流大会|選手権|記録会|マラソン/.test(l1)) {
-          let fullTitle = l1;
-          if (i + 1 < lines.length) {
-            let l2 = lines[i + 1];
-            if (/大会|交流大会|陸上|選手権|記録会/.test(l2) && !/主催|主管|期日|日時|会場|場所/.test(l2)) {
-              fullTitle += ' ' + l2;
-            }
-          }
-          fullTitle = fullTitle.replace(/[\s]*(?:参加者募集要項|参加者募集|実施要項|募集要項|大会要項|要項|の\s*ご?案内|の\s*お知らせ|について).*$/, '').trim();
-          fullTitle = fullTitle.replace(/^[【\[\(].*?[】\]\)]/, '').replace(/\s+/g, ' ').trim();
-          if (fullTitle.length >= 4) {
-            res.title = fullTitle;
-            break;
-          }
-        }
-      }
-
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i];
-        if (/^(?:\d+[\.\s]|期日|日時|開催期日|開催日時)/.test(l) || /期日:|日時:/.test(l)) {
-          if (!/生年月日|生まれ|資格|申込期間|締切|振込|振替|～|~/.test(l)) {
-            const m = l.match(/(?:20\d\d年?|令和\d+年?|R\d+年?)?\s*[0-9]{1,2}月[0-9]{1,2}日[^\n\r]*/);
-            if (m) {
-              res.date = m[0].replace(/\s+/g, ' ').trim();
-              break;
-            }
-          }
-        }
-      }
-
-      const venues = [
-        '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
-        '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
-        '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
-        '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
       ];
-      for (const v of venues) {
-        if (text.includes(v)) {
-          res.place = v;
-          break;
-        }
-      }
-
-      const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
-      if (feeLineMatch) {
-        res.fee = feeLineMatch[1].replace(/\s+/g, '');
-      } else {
-        const anyFee = text.match(/([0-9,]+円)/);
-        if (anyFee) res.fee = anyFee[1];
-      }
-
-      const itemSet = new Set();
-      if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
-      if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text) || /走幅跳.*ボール/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリック)');
-      if (/5年.*100m/.test(text) || /5年男女100m/.test(text)) itemSet.add('5年男女100m');
-      if (/6年.*100m/.test(text) || /6年男女100m/.test(text)) itemSet.add('6年男女100m');
-      if (/4×100m|リレー/.test(text)) itemSet.add('男女混合4×100mリレー');
-      if (/800m/.test(text)) itemSet.add('女子800m');
-      if (/1500m/.test(text)) itemSet.add('男子1500m');
-
-      if (itemSet.size > 0) {
-        res.items = Array.from(itemSet).join(', ');
-      }
-
-      return res;
-    }
-
-    async function analyzeYoukouWithGemini(files) {
-      let fullDocText = '';
-      const inlineParts = [];
 
       for (const file of files) {
-        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-          const pdfText = await extractFileText(file);
-          fullDocText += `\n--- 要項ファイル (${file.name}) ---\n` + pdfText;
-        } else {
-          const norm = await fileToNormalizedBase64(file);
-          inlineParts.push({
+        const imageItems = await convertAnyFileToImages(file);
+        imageItems.forEach(img => {
+          parts.push({
             inlineData: {
-              mimeType: norm.mimeType,
-              data: norm.data
+              mimeType: img.mimeType,
+              data: img.data
             }
           });
-        }
+        });
       }
 
-      const apiKey = getApiKey();
-      const userPrompt = `要項内容から以下の5項目を抽出し、JSON形式で出力してください。
-1. "title": 大会の正式名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）
-2. "date": 大会の開催日時（例: "2026年6月21日(日) 競技開始9:00予定"）
-3. "place": 会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）
-4. "fee": 個人種目の参加料（例: "600円"）
-5. "items": 実施種目（例: "5年100m, 6年100m, コンバインドA/B, リレー"）
-
-${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
-
-      const payload = {
-        contents: [{ parts: [{ text: userPrompt }, ...inlineParts] }],
-        generationConfig: { responseMimeType: "application/json" }
-      };
-
-      const delays = [1000, 2000, 4000, 8000, 16000];
-      for (let attempt = 0; attempt <= 5; attempt++) {
-        try {
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (jsonStr) return JSON.parse(jsonStr);
-          }
-        } catch (e) {
-          console.warn(e);
-        }
-        if (attempt < 5) await new Promise(r => setTimeout(r, delays[attempt]));
-      }
-
-      return parseYoukouSmartEngine(fullDocText);
+      const systemPrompt = "あなたは大会要項画像から正確に文字・表を読み取りJSONを出力する陸上運営AIです。";
+      return await callGeminiVisionAPI(parts, systemPrompt);
     }
 
     async function createEventByAiYoukouFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`🤖 要項ファイルをAI解析中...`);
+      showLoading("大会要項をAIビジョン解析中...");
 
       try {
-        const parsed = await analyzeYoukouWithGemini(files);
+        const parsed = await analyzeYoukouWithGeminiVision(files);
 
         const newId = 'evt_' + Date.now();
         const newEv = {
@@ -1351,10 +1300,12 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         loadActiveEventToUI();
 
         event.target.value = '';
-        showToast(`✨「${newEv.title}」を解析して新規登録しました！`);
+        hideLoading();
+        showToast(`✨「${newEv.title}」をAI解析して新規登録しました！`);
       } catch (err) {
+        hideLoading();
         console.error(err);
-        showToast('解析を完了しました');
+        alert("要項AI解析エラー: " + err.message);
       }
     }
 
@@ -1492,9 +1443,9 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
       const ev = appDB.events[appDB.activeId];
 
       if (type === 'youkou') {
-        setDropStatus('youkou', 'AI解析中...');
+        showLoading("大会要項をAI解析中...");
         try {
-          const parsed = await analyzeYoukouWithGemini(files);
+          const parsed = await analyzeYoukouWithGeminiVision(files);
           if (parsed.title) ev.title = parsed.title;
           if (parsed.date) ev.date = parsed.date;
           if (parsed.place) ev.place = parsed.place;
@@ -1502,13 +1453,15 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           if (parsed.items) ev.items = parsed.items;
 
           ev.status.youkou = true;
-          setDropStatus('youkou', `✓ 解析完了 (${files.length}件)`);
+          setDropStatus('youkou', `✓ AI解析完了 (${files.length}件)`);
           document.getElementById('drop-youkou').classList.add('loaded');
           loadActiveEventToUI();
+          hideLoading();
           showToast('要項の全項目を正確に反映しました！');
         } catch (err) {
+          hideLoading();
           console.error(err);
-          setDropStatus('youkou', '完了');
+          alert("要項解析エラー: " + err.message);
         }
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
@@ -1523,12 +1476,18 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         reader.readAsText(files[0], 'UTF-8');
       } else if (type === 'schedule') {
         setDropStatus('schedule', 'タイテ解析中...');
-        let text = '';
-        for (const f of files) text += (await extractFileText(f)) + '\n\n';
-        parseScheduleText(text);
-        ev.status.schedule = true;
-        setDropStatus('schedule', `✓ ${files.length}件解析完了`);
-        document.getElementById('drop-schedule').classList.add('loaded');
+        showLoading("競技日程を解析中...");
+        try {
+          let text = '';
+          for (const f of files) text += (await extractFileText(f)) + '\n\n';
+          parseScheduleText(text);
+          ev.status.schedule = true;
+          setDropStatus('schedule', `✓ ${files.length}件解析完了`);
+          document.getElementById('drop-schedule').classList.add('loaded');
+        } catch (e) {
+          console.error(e);
+        }
+        hideLoading();
       } else if (type === 'startlist') {
         setDropStatus('startlist', 'スタートリスト照合中...');
         let text = '';
