@@ -6,6 +6,8 @@
   <title id="app-page-title">安室RC役員アプリ</title>
   <!-- PDF.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -175,9 +177,9 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     .preview-box {
-      background: #0f172a; color: #f8fafc; padding: 18px 20px; border-radius: 8px;
+      background: #0f172a; color: #f8fafc; padding: 20px 22px; border-radius: 8px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      white-space: pre-wrap; font-size: 0.92rem; line-height: 1.65; max-height: 520px; overflow-y: auto;
+      white-space: pre-wrap; font-size: 0.95rem; line-height: 1.7; max-height: 520px; overflow-y: auto;
     }
 
     .toggle-group {
@@ -222,7 +224,7 @@
   <header>
     <div class="header-tools">
       <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.8.6 (清掃自動判定＆高精度AI版)</div>
+      <div class="version-tag">ver 1.8.7 (シンプル超洗練版)</div>
     </div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
@@ -470,7 +472,7 @@
 
     </div>
 
-    <!-- メインタブ2: 月間練習予定作成（清掃自動連動＆高精度版） -->
+    <!-- メインタブ2: 月間練習予定作成（シンプル超洗練版） -->
     <div id="tab-schedule-manager" class="tab-content">
       <div class="card no-print">
         <h2>📅 1. 競技場カレンダー読込 & AI自動判定</h2>
@@ -487,11 +489,11 @@
             <div>
               <div style="font-size: 0.85rem; font-weight: bold; margin-bottom: 6px;">対象月と時間帯モード設定</div>
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
-                <input type="month" id="practice-month-input" value="2026-09" style="font-size: 0.85rem; width: 140px;" onchange="generateSaturdayPracticeRows()">
+                <input type="month" id="practice-month-input" value="2026-08" style="font-size: 0.85rem; width: 140px;" onchange="generateSaturdayPracticeRows()">
                 
                 <div class="toggle-group">
-                  <button type="button" class="toggle-btn active" id="btn-mode-normal" onclick="setSummerTimeMode(false)">通常 (8時30分〜)</button>
-                  <button type="button" class="toggle-btn" id="btn-mode-summer" onclick="setSummerTimeMode(true)">☀️ サマータイム (7時〜)</button>
+                  <button type="button" class="toggle-btn" id="btn-mode-normal" onclick="setSummerTimeMode(false)">通常 (8時30分開始)</button>
+                  <button type="button" class="toggle-btn active" id="btn-mode-summer" onclick="setSummerTimeMode(true)">☀️ サマータイム (7時00分開始)</button>
                 </div>
               </div>
             </div>
@@ -609,10 +611,10 @@
   <div id="toast">コピーしました！</div>
 
   <script>
-    let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: false };
+    let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: true };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v186');
+      const saved = localStorage.getItem('amuro_app_db_v187');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -645,7 +647,7 @@
         appDB.activeId = defId;
       }
 
-      if (appDB.isSummerTime === undefined) appDB.isSummerTime = false;
+      if (appDB.isSummerTime === undefined) appDB.isSummerTime = true;
 
       if (!appDB.practices || appDB.practices.length === 0) {
         generateSaturdayPracticeRows(true);
@@ -660,7 +662,7 @@
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v186', JSON.stringify(appDB));
+      localStorage.setItem('amuro_app_db_v187', JSON.stringify(appDB));
     }
 
     function syncSenderName(name, updateEv = true) {
@@ -730,7 +732,6 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
-    // 画像ファイルを確実にJPEG正規化してBase64化する関数（AI認識率を極大化）
     function fileToNormalizedBase64(file) {
       return new Promise((resolve, reject) => {
         if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -776,58 +777,54 @@
     }
 
     /* -------------------------------------------------------------
-       安室RC特化：月間練習予定（清掃自動連動 & 実物完全再現）
+       安室RC特化：月間練習予定（シンプル超洗練版）
     ------------------------------------------------------------- */
     const PRACTICE_PLACES = [
+      "サブトラ",
       "野球場北公園",
-      "サブトラック",
-      "ウインク陸上競技場",
+      "ウインク競技場",
       "手柄山中央公園",
       "安室中グラウンド",
-      "大会出場",
-      "休み"
+      "お盆休み",
+      "お休み"
     ];
 
     const PRACTICE_START_TIMES_NORMAL = [
-      "8時30分〜",
-      "8:30〜",
-      "9時00分〜",
-      "13時30分〜",
+      "8時30分開始",
+      "8:30開始",
+      "9時00分開始",
+      "13時30分開始",
       "休み"
     ];
 
     const PRACTICE_START_TIMES_SUMMER = [
-      "7時00分〜",
-      "7時〜",
-      "7:00〜",
-      "7時30分〜",
+      "7時00分開始",
+      "7時開始",
+      "7:00開始",
+      "7時30分開始",
       "休み"
     ];
 
-    // 月初めのサブトラック練習日を自動特定して清掃文言を再計算するコア関数
     function recalculateCleaningSchedule() {
       const cleanMsg = appDB.isSummerTime 
-        ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" 
-        : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
+        ? "※6時45分から公園清掃を実施します。" 
+        : "※8時15分から公園清掃を実施します。";
 
       let firstSubtraFound = false;
 
       appDB.practices.forEach(p => {
-        if (p.place === "サブトラック") {
+        const isSubtra = p.place.includes("サブトラ") || p.place.includes("サブトラック");
+        if (isSubtra) {
           if (!firstSubtraFound) {
             p.memo = cleanMsg;
             p.hasCleaning = true;
             firstSubtraFound = true;
           } else {
-            if (p.memo.includes("清掃活動")) {
-              p.memo = "";
-            }
+            if (p.memo.includes("清掃")) p.memo = "";
             p.hasCleaning = false;
           }
         } else {
-          if (p.memo.includes("清掃活動")) {
-            p.memo = "";
-          }
+          if (p.memo.includes("清掃")) p.memo = "";
           p.hasCleaning = false;
         }
       });
@@ -837,7 +834,7 @@
       appDB.isSummerTime = isSummer;
       updateSummerTimeToggleUI();
 
-      const targetTime = isSummer ? "7時〜" : "8時30分〜";
+      const targetTime = isSummer ? "7時00分開始" : "8時30分開始";
       appDB.practices.forEach(p => {
         if (!p.place.includes("休み") && !p.place.includes("大会")) {
           p.time = targetTime;
@@ -847,7 +844,7 @@
       recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
-      showToast(isSummer ? 'サマータイム（7時〜）に切り替えました！' : '通常時間（8時30分〜）に切り替えました！');
+      showToast(isSummer ? 'サマータイム（7時00分開始）に設定しました！' : '通常時間（8時30分開始）に設定しました！');
     }
 
     function updateSummerTimeToggleUI() {
@@ -863,23 +860,32 @@
     }
 
     function generateSaturdayPracticeRows(initial = false) {
-      const monthVal = document.getElementById('practice-month-input').value || "2026-09";
+      const monthVal = document.getElementById('practice-month-input').value || "2026-08";
       const [yearStr, monthStr] = monthVal.split('-');
       const year = parseInt(yearStr, 10);
       const month = parseInt(monthStr, 10);
 
       const daysInMonth = new Date(year, month, 0).getDate();
       const newPractices = [];
-      const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
+      const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
 
       for (let day = 1; day <= daysInMonth; day++) {
         const d = new Date(year, month - 1, day);
         if (d.getDay() === 6) { // 毎週土曜日
-          const dateLabel = `${month}月${day}日（土）`;
+          const dateLabel = `${month}/${day}（土）`;
+          let place = "サブトラ";
+          let time = baseTime;
+
+          // 8月中旬（15日前後）はお盆休み初期設定
+          if (month === 8 && day >= 12 && day <= 18) {
+            place = "お盆休み";
+            time = "";
+          }
+
           newPractices.push({
             date: dateLabel,
-            time: baseTime,
-            place: "野球場北公園",
+            time: time,
+            place: place,
             memo: "",
             hasCleaning: false
           });
@@ -920,16 +926,17 @@
           </td>
           <td>
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <input class="table-input" style="font-weight: bold; color: ${item.place === '野球場北公園' ? '#ea580c' : (item.place === 'サブトラック' ? '#0284c7' : '#1e293b')};" value="${item.place}" oninput="updatePracticePlaceRow(${idx}, this.value)">
+              <input class="table-input" style="font-weight: bold; color: ${item.place.includes('北公園') ? '#ea580c' : (item.place.includes('サブトラ') ? '#0284c7' : '#1e293b')};" value="${item.place}" oninput="updatePracticePlaceRow(${idx}, this.value)">
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                <span class="badge ${item.place === '野球場北公園' ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, '野球場北公園')">北公園</span>
-                <span class="badge ${item.place === 'サブトラック' ? 'badge-blue' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'サブトラック')">サブトラ</span>
-                <span class="badge ${item.place === 'ウインク陸上競技場' ? 'badge-green' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'ウインク陸上競技場')">競技場</span>
-                <span class="badge ${item.place === '休み' ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, '休み')">休み</span>
+                <span class="badge ${item.place.includes('サブトラ') ? 'badge-blue' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'サブトラ')">サブトラ</span>
+                <span class="badge ${item.place.includes('北公園') ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, '野球場北公園')">北公園</span>
+                <span class="badge ${item.place.includes('ウインク') ? 'badge-green' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'ウインク競技場')">競技場</span>
+                <span class="badge ${item.place.includes('休み') ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'お盆休み')">お盆休み</span>
+                <span class="badge ${item.place === 'お休み' ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'お休み')">お休み</span>
               </div>
             </div>
           </td>
-          <td><input class="table-input" value="${item.memo || ''}" placeholder="※練習前の15分間、清掃活動を行います。" oninput="appDB.practices[${idx}].memo = this.value; saveDatabase();"></td>
+          <td><input class="table-input" value="${item.memo || ''}" placeholder="※清掃案内など" oninput="appDB.practices[${idx}].memo = this.value; saveDatabase();"></td>
           <td style="text-align: center;"><button class="btn btn-secondary btn-sm" onclick="removePracticeRow(${idx})">×</button></td>
         `;
         tbody.appendChild(tr);
@@ -938,17 +945,22 @@
 
     function updatePracticePlaceRow(idx, newPlace) {
       appDB.practices[idx].place = newPlace;
+      if (newPlace.includes("休み")) {
+        appDB.practices[idx].time = "";
+      } else if (!appDB.practices[idx].time) {
+        appDB.practices[idx].time = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
+      }
       recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
     }
 
     function addPracticeRow() {
-      const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
+      const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
       appDB.practices.push({
-        date: "9月○日（土）",
+        date: "8/○（土）",
         time: baseTime,
-        place: "野球場北公園",
+        place: "サブトラ",
         memo: "",
         hasCleaning: false
       });
@@ -985,24 +997,25 @@
 添付された競技場（ウインク陸上競技場・姫路市陸上競技場）の月間行事予定表・カレンダー画像（またはPDF）を隅々まで正確に読み取ってください。
 
 【安室RCの判定ルール】
-1. カレンダーに記載されている対象月（例: 9月）の「すべての土曜日」の日付を抽出してください。
+1. カレンダーに記載されている対象月（例: 8月や9月）の「すべての土曜日」の日付を抽出してください。
 2. 各土曜日の行事・大会欄を確認し、以下のように判定してください：
    - 陸上大会、陸協記録会、選手権、総体、新人戦、交流大会、リレーカーニバル、学年別陸上などの「陸上競技大会」がある場合 ➔ place: "野球場北公園"（サブトラックがウォーミングアップ等で占有されるため使用不可）
-   - サッカー、ラグビー、陸上教室、他競技、一般開放、空欄などの場合 ➔ place: "サブトラック"
-   - 専用利用/貸切が確保されている場合 ➔ place: "ウインク陸上競技場"
-3. "month": カレンダーの対象月（数値、例: 9）
+   - サッカー、ラグビー、陸上教室、他競技、一般開放、空欄などの場合 ➔ place: "サブトラ"
+   - 専用利用/貸切が確保されている場合 ➔ place: "ウインク競技場"
+   - お盆期間（8/13〜8/16付近）で練習がない場合 ➔ place: "お盆休み"
+3. "month": カレンダーの対象月（数値、例: 8）
 4. 出力は以下のJSONスキーマのみを厳格に出力してください。
 
 JSON形式:
 {
-  "month": 9,
+  "month": 8,
   "saturdays": [
     {
-      "date": "9月7日（土）",
-      "dayNum": 7,
-      "event": "姫路市陸協記録会",
-      "hasTrackMeet": true,
-      "place": "野球場北公園"
+      "date": "8/1（土）",
+      "dayNum": 1,
+      "event": "一般利用",
+      "hasTrackMeet": false,
+      "place": "サブトラ"
     }
   ]
 }
@@ -1050,21 +1063,22 @@ JSON形式:
         }
       }
 
-      // AI解析が成功した場合の直接適用
       if (aiResult && aiResult.saturdays && aiResult.saturdays.length > 0) {
         if (aiResult.month) {
           const currentYear = new Date().getFullYear();
           document.getElementById('practice-month-input').value = `${currentYear}-${String(aiResult.month).padStart(2, '0')}`;
         }
 
-        const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
+        const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
         const newPractices = [];
 
         aiResult.saturdays.forEach(sat => {
-          let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラック");
+          let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラ");
+          let time = place.includes("休み") ? "" : baseTime;
+
           newPractices.push({
             date: sat.date,
-            time: baseTime,
+            time: time,
             place: place,
             memo: "",
             hasCleaning: false
@@ -1072,7 +1086,7 @@ JSON形式:
         });
 
         appDB.practices = newPractices;
-        recalculateCleaningSchedule(); // 月初めサブトラ清掃を自動割り当て
+        recalculateCleaningSchedule();
         saveDatabase();
         renderPracticeScheduleTable();
         statusEl.innerText = `✓ AI解析完了 (${newPractices.length}日分)`;
@@ -1080,30 +1094,39 @@ JSON形式:
         return;
       }
 
-      // フォールバック
       generateSaturdayPracticeRows(false);
       statusEl.innerText = '✓ カレンダー展開完了';
-      showToast('土曜練習日を展開しました（各行のバッジで調整できます）');
+      showToast('土曜練習日を展開しました');
     }
 
-    // らくらく連絡網 練習予定配信文の生成（実物完全再現）
+    // らくらく連絡網 練習予定配信文の生成（シンプル超洗練版）
     function generatePracticeBroadcastMessage() {
-      const monthVal = document.getElementById('practice-month-input').value || "2026-09";
-      const monthStr = monthVal.split('-')[1] || "9";
+      const monthVal = document.getElementById('practice-month-input').value || "2026-08";
+      const monthStr = monthVal.split('-')[1] || "8";
       const month = parseInt(monthStr, 10);
       const sender = (document.getElementById('inp-practice-sender').value || appDB.senderName || '久保').trim();
       const items = (document.getElementById('inp-practice-items').value || '').trim();
       const notes = (document.getElementById('inp-practice-notes').value || '').trim().replace(/\\n/g, '\n');
 
-      let msg = `皆様\n\n早速ですが、${month}月の練習予定をお知らせします。\n\n`;
+      let msg = `皆様\n\n${month}月の練習予定は下記の通りです。\n`;
+
+      if (appDB.isSummerTime) {
+        msg += `※夏休み期間中のため、7時00分開始となります。\n`;
+      }
+
+      msg += `\n`;
 
       appDB.practices.forEach(p => {
-        msg += `✅日時：${p.date}${p.time}\n`;
-        msg += `✅場所：${p.place}\n`;
-        if (p.memo && p.memo.trim()) {
-          msg += `${p.memo.trim()}\n`;
+        if (p.place.includes("休み")) {
+          msg += `✅${p.date}${p.place}\n\n`;
+        } else {
+          const timeStr = p.time ? `${p.time}` : "";
+          msg += `✅${p.date}${timeStr}＠${p.place}\n`;
+          if (p.memo && p.memo.trim()) {
+            msg += `${p.memo.trim()}\n`;
+          }
+          msg += `\n`;
         }
-        msg += `\n`;
       });
 
       if (items) {
@@ -1114,11 +1137,11 @@ JSON形式:
         msg += `✅その他：\n${notes}\n\n`;
       }
 
-      msg += `ご質問等ありましたら、お気軽にメールにてお問い合わせ下さい。\namuro.rc@gmail.com\n\n${sender}`;
+      msg += `\namuro.rc@gmail.com\n\n${sender}`;
 
       document.getElementById('practice-message-preview').innerText = msg;
       document.getElementById('practice-preview-card').style.display = 'block';
-      showToast('実物通りの配信本文を生成しました！');
+      showToast('シンプル配信本文を生成しました！');
     }
 
     function copyPracticeMessage() {
@@ -1157,7 +1180,6 @@ JSON形式:
       const text = normalizeDocText(rawText);
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-      // 大会名
       for (let i = 0; i < Math.min(lines.length, 15); i++) {
         let l1 = lines[i];
         if (/主催|主管|後援|参加資格|期日|日時|場所|会場|下記|要領|総則/.test(l1)) continue;
@@ -1187,7 +1209,6 @@ JSON形式:
         }
       }
 
-      // 開催日時
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
         if (/^(?:\d+[\.\s]|期日|日時|開催期日|開催日時)/.test(l) || /期日:|日時:/.test(l)) {
@@ -1201,7 +1222,6 @@ JSON形式:
         }
       }
 
-      // 会場・場所
       const venues = [
         '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
         '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
@@ -1215,7 +1235,6 @@ JSON形式:
         }
       }
 
-      // 参加料
       const feeLineMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
       if (feeLineMatch) {
         res.fee = feeLineMatch[1].replace(/\s+/g, '');
@@ -1224,7 +1243,6 @@ JSON形式:
         if (anyFee) res.fee = anyFee[1];
       }
 
-      // 種目
       const itemSet = new Set();
       if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
       if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text) || /走幅跳.*ボール/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリック)');
@@ -1542,6 +1560,9 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
+      } else if (file.type.startsWith('image/')) {
+        const result = await Tesseract.recognize(file, 'jpn');
+        return result.data.text;
       } else {
         return await file.text();
       }
