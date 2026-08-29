@@ -6,6 +6,8 @@
   <title id="app-page-title">安室RC役員アプリ</title>
   <!-- PDF.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -58,9 +60,10 @@
     .nav-tabs {
       display: flex; justify-content: center; background: white;
       border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+      overflow-x: auto; white-space: nowrap;
     }
     .tab-btn {
-      padding: 12px 20px; border: none; background: none; font-size: 0.9rem; font-weight: bold;
+      padding: 12px 18px; border: none; background: none; font-size: 0.9rem; font-weight: bold;
       color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
     }
     .tab-btn:hover { color: var(--primary); }
@@ -172,18 +175,21 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     .preview-box {
-      background: #0f172a; color: #f8fafc; padding: 14px; border-radius: 6px;
-      font-family: monospace; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.5; max-height: 400px; overflow-y: auto;
+      background: #0f172a; color: #f8fafc; padding: 18px 20px; border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      white-space: pre-wrap; font-size: 0.92rem; line-height: 1.65; max-height: 520px; overflow-y: auto;
     }
 
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6);
-      display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    /* 切替トグル用ボタングループ */
+    .toggle-group {
+      display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 6px; gap: 2px;
     }
-    .modal-overlay.active { opacity: 1; pointer-events: auto; }
-    .modal-card {
-      background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    .toggle-btn {
+      padding: 6px 14px; border: none; background: transparent; border-radius: 4px; font-size: 0.8rem;
+      font-weight: bold; cursor: pointer; color: var(--text-muted); transition: all 0.2s;
+    }
+    .toggle-btn.active {
+      background: white; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
     #toast {
@@ -206,39 +212,43 @@
 
   <header>
     <div class="header-tools">
-      <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.7.1 (ハイブリッド完全版)</div>
+      <div class="version-tag">ver 1.8.4 (任意連絡事項版)</div>
     </div>
     <h1>🏃 安室RC役員アプリ</h1>
-    <p>安室ランニングクラブ 大会統合運営・帳票作成ツール</p>
+    <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
   </header>
 
+  <!-- 大会選択・管理バー -->
   <div class="event-selector-bar no-print">
     <span>🏆 進行中の大会:</span>
     <select id="event-select" onchange="changeActiveEvent()"></select>
     
-    <button class="btn btn-purple btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">✨ AI要項から新規作成</button>
-    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByAiYoukouFile(event)">
+    <button class="btn btn-accent btn-sm" onclick="document.getElementById('input-create-by-youkou').click()">📑 要項から新規作成</button>
+    <input type="file" id="input-create-by-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple style="display: none;" onchange="createEventByYoukouFile(event)">
 
     <button class="btn btn-secondary btn-sm" onclick="createNewEvent()">➕ 手動で新規作成</button>
     <button class="btn btn-danger btn-sm" onclick="deleteActiveEvent()">🗑️ 削除</button>
   </div>
 
+  <!-- メインナビゲーション -->
   <nav class="nav-tabs no-print">
     <button class="tab-btn active" onclick="switchMainTab(event, 'tab-hub')">🏁 1. 大会運営ハブ（一括読込＆出力）</button>
-    <button class="tab-btn" onclick="switchMainTab(event, 'tab-master')">👤 2. 選手マスター</button>
+    <button class="tab-btn" onclick="switchMainTab(event, 'tab-schedule-manager')">📅 2. 月間練習予定作成</button>
+    <button class="tab-btn" onclick="switchMainTab(event, 'tab-master')">👤 3. 選手マスター</button>
   </nav>
 
   <div class="container">
 
+    <!-- メインタブ1: 大会運営ハブ -->
     <div id="tab-hub" class="tab-content active">
       
+      <!-- レイヤー1: データ一括投入エリア -->
       <div class="card no-print">
-        <h2>📁 STEP 1: 大会関連ファイルの投入（AIマルチモーダル自動解析）</h2>
+        <h2>📁 STEP 1: 大会関連ファイルの投入（自動スマート解析）</h2>
         <div class="drop-grid">
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
             <div class="icon">📑</div>
-            <div class="title">① 大会要項 (AI解析)</div>
+            <div class="title">① 大会要項</div>
             <div class="desc">PDFまたは写真画像<br>(表裏2枚などの複数選択OK)</div>
             <div class="status" id="status-youkou"></div>
             <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp" multiple onchange="handleHubFile(event, 'youkou')">
@@ -270,13 +280,14 @@
         </div>
       </div>
 
+      <!-- レイヤー2: 統合出力・編集レイヤー -->
       <div class="sub-tabs no-print">
         <button class="sub-tab-btn active" onclick="switchSubTab(event, 'sub-rakuraku')">📩 1. 連絡網 案内文作成</button>
         <button class="sub-tab-btn" onclick="switchSubTab(event, 'sub-entry')">📋 2. 出場申込リスト (PDF)</button>
         <button class="sub-tab-btn" onclick="switchSubTab(event, 'sub-timetable')">⏱️ 3. 応援タイムスケジュール (PDF)</button>
       </div>
 
-      <!-- サブコンテンツ1 -->
+      <!-- サブコンテンツ1: 連絡網案内文 -->
       <div id="sub-rakuraku" class="sub-content active">
         <div class="card">
           <h2>📩 らくらく連絡網 配信文作成</h2>
@@ -312,7 +323,7 @@
         </div>
       </div>
 
-      <!-- サブコンテンツ2 -->
+      <!-- サブコンテンツ2: 出場リスト -->
       <div id="sub-entry" class="sub-content">
         <div class="card no-print">
           <h2>⚙️ 出場リスト設定</h2>
@@ -377,7 +388,7 @@
         </div>
       </div>
 
-      <!-- サブコンテンツ3 -->
+      <!-- サブコンテンツ3: 応援タイテ -->
       <div id="sub-timetable" class="sub-content">
         <div class="card no-print">
           <h2>⏱️ 応援タイムスケジュール設定・編集</h2>
@@ -449,7 +460,84 @@
 
     </div>
 
-    <!-- メインタブ2 -->
+    <!-- メインタブ2: 月間練習予定作成（任意入力化対応版） -->
+    <div id="tab-schedule-manager" class="tab-content">
+      <div class="card no-print">
+        <h2>📅 1. 競技場カレンダー読込 & 自動判定</h2>
+        <div class="drop-grid">
+          <div class="hub-dropzone" onclick="document.getElementById('input-stadium-calendar').click()">
+            <div class="icon">🏟️</div>
+            <div class="title">競技場カレンダー写真/PDFを読込</div>
+            <div class="desc">ウインクカレンダーの大会有無を自動判定<br>（大会あり ➔ 野球場北公園、なし ➔ サブトラ）</div>
+            <div class="status" id="status-stadium-calendar"></div>
+            <input type="file" id="input-stadium-calendar" accept=".pdf, .png, .jpg, .jpeg, .webp" onchange="handleStadiumCalendarFile(event)">
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: bold; margin-bottom: 6px;">対象月と時間帯モード設定</div>
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                <input type="month" id="practice-month-input" value="2026-09" style="font-size: 0.85rem; width: 140px;" onchange="generateSaturdayPracticeRows()">
+                
+                <div class="toggle-group">
+                  <button type="button" class="toggle-btn active" id="btn-mode-normal" onclick="setSummerTimeMode(false)">通常 (8時30分〜)</button>
+                  <button type="button" class="toggle-btn" id="btn-mode-summer" onclick="setSummerTimeMode(true)">☀️ サマータイム (7時〜)</button>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">※毎週土曜日＋月初清掃を自動生成</span>
+              <button class="btn btn-secondary btn-sm" onclick="generateSaturdayPracticeRows()">🔄 土曜練習日を一括展開</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card no-print">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2>🏃 2. 土曜練習日程の微調整</h2>
+          <button class="btn btn-secondary btn-sm" onclick="addPracticeRow()">➕ 練習日を追加</button>
+        </div>
+
+        <div class="table-container">
+          <table id="practice-schedule-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">日付 (曜日)</th>
+                <th style="width: 20%;">開始時間</th>
+                <th style="width: 28%;">練習場所</th>
+                <th style="width: 22%;">注記（清掃案内など）</th>
+                <th style="width: 8%; text-align: center;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="practice-schedule-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="form-row" style="margin-top: 15px;">
+          <div class="form-group">
+            <label>持ち物リスト（任意入力：入力時のみ「✅持ち物：」として出力）</label>
+            <input id="inp-practice-items" value="" placeholder="例: 水分（多めに）、タオル、着替え等、必要なもの">
+          </div>
+          <div class="form-group">
+            <label>その他・連絡事項（任意入力：入力時のみ「✅その他：」として出力）</label>
+            <input id="inp-practice-notes" value="" placeholder="例: ・熱中症警戒アラートや雨天等で中止になる場合は、開始1時間前を目処にメールにてご連絡します。">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generatePracticeBroadcastMessage()" style="width: 100%; margin-top: 8px;">✨ らくらく連絡網 練習予定配信文を生成</button>
+      </div>
+
+      <div class="card" id="practice-preview-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2>📱 配信本文プレビュー</h2>
+          <button class="btn btn-primary" onclick="copyPracticeMessage()">📋 本文をコピー</button>
+        </div>
+        <div class="preview-box" id="practice-message-preview"></div>
+      </div>
+    </div>
+
+    <!-- メインタブ3: 選手マスター -->
     <div id="tab-master" class="tab-content">
       <div class="card">
         <h2>👤 安室RC 登録選手一覧（マスター）</h2>
@@ -485,31 +573,13 @@
 
   </div>
 
-  <!-- APIキー設定モーダル -->
-  <div class="modal-overlay" id="api-key-modal">
-    <div class="modal-card">
-      <h2 style="font-size: 1.1rem; margin-bottom: 12px;">🔑 Gemini APIキー設定</h2>
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-        Google AI Studioで取得したGemini APIキーを入力してください。<br>キーはブラウザ内（端末）にのみ保存されます。
-      </p>
-      <div class="form-group">
-        <label>APIキー</label>
-        <input type="password" id="gemini-api-key-input" placeholder="AIzaSy... または AQ.Ab8...">
-      </div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
-        <button class="btn btn-secondary" onclick="closeApiKeyModal()">閉じる</button>
-        <button class="btn btn-primary" onclick="saveApiKey()">保存する</button>
-      </div>
-    </div>
-  </div>
-
   <div id="toast">コピーしました！</div>
 
   <script>
-    let appDB = { activeId: '', events: {} };
+    let appDB = { activeId: '', events: {}, practices: [], isSummerTime: false };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v171');
+      const saved = localStorage.getItem('amuro_app_db_v184');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
@@ -538,40 +608,23 @@
           ]
         };
         appDB.activeId = defId;
-        saveDatabase();
       }
 
-      if (!appDB.events[appDB.activeId]) {
-        appDB.activeId = Object.keys(appDB.events)[0];
+      if (appDB.isSummerTime === undefined) appDB.isSummerTime = false;
+
+      if (!appDB.practices || appDB.practices.length === 0) {
+        generateSaturdayPracticeRows(true);
       }
 
+      saveDatabase();
       renderEventSelector();
       loadActiveEventToUI();
+      renderPracticeScheduleTable();
+      updateSummerTimeToggleUI();
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v171', JSON.stringify(appDB));
-    }
-
-    function openApiKeyModal() {
-      const savedKey = localStorage.getItem('amuro_gemini_api_key') || '';
-      document.getElementById('gemini-api-key-input').value = savedKey;
-      document.getElementById('api-key-modal').classList.add('active');
-    }
-
-    function closeApiKeyModal() {
-      document.getElementById('api-key-modal').classList.remove('active');
-    }
-
-    function saveApiKey() {
-      const key = document.getElementById('gemini-api-key-input').value.trim();
-      localStorage.setItem('amuro_gemini_api_key', key);
-      closeApiKeyModal();
-      showToast('APIキーを保存しました！');
-    }
-
-    function getApiKey() {
-      return localStorage.getItem('amuro_gemini_api_key') || 'AQ.Ab8RN6IgJ6EKtOKjVWw0a6e-GOiBKu3LuFfeI21PBawzq5jSiQ';
+      localStorage.setItem('amuro_app_db_v184', JSON.stringify(appDB));
     }
 
     function renderEventSelector() {
@@ -593,6 +646,299 @@
       showToast('大会データを切り替えました');
     }
 
+    function switchMainTab(evt, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      evt.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function switchSubTab(evt, subTabId) {
+      document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.sub-content').forEach(content => content.classList.remove('active'));
+      evt.currentTarget.classList.add('active');
+      document.getElementById(subTabId).classList.add('active');
+      if (subTabId === 'sub-timetable') updateTimeTablePrint();
+    }
+
+    /* -------------------------------------------------------------
+       安室RC特化：月間練習予定（任意項目対応・実物完全一致版）
+    ------------------------------------------------------------- */
+    const PRACTICE_PLACES = [
+      "野球場北公園",
+      "サブトラック",
+      "ウインク陸上競技場",
+      "手柄山中央公園",
+      "安室中グラウンド",
+      "大会出場",
+      "休み"
+    ];
+
+    const PRACTICE_START_TIMES_NORMAL = [
+      "8時30分〜",
+      "8:30〜",
+      "9時00分〜",
+      "13時30分〜",
+      "休み"
+    ];
+
+    const PRACTICE_START_TIMES_SUMMER = [
+      "7時00分〜",
+      "7時〜",
+      "7:00〜",
+      "7時30分〜",
+      "休み"
+    ];
+
+    function setSummerTimeMode(isSummer) {
+      appDB.isSummerTime = isSummer;
+      updateSummerTimeToggleUI();
+
+      const targetTime = isSummer ? "7時〜" : "8時30分〜";
+      appDB.practices.forEach(p => {
+        if (!p.place.includes("休み") && !p.place.includes("大会")) {
+          p.time = targetTime;
+          if (p.hasCleaning) {
+            p.memo = isSummer ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
+          }
+        }
+      });
+
+      saveDatabase();
+      renderPracticeScheduleTable();
+      showToast(isSummer ? 'サマータイム（7時〜）に切り替えました！' : '通常時間（8時30分〜）に切り替えました！');
+    }
+
+    function updateSummerTimeToggleUI() {
+      const btnNormal = document.getElementById('btn-mode-normal');
+      const btnSummer = document.getElementById('btn-mode-summer');
+      if (appDB.isSummerTime) {
+        btnNormal.classList.remove('active');
+        btnSummer.classList.add('active');
+      } else {
+        btnNormal.classList.add('active');
+        btnSummer.classList.remove('active');
+      }
+    }
+
+    function generateSaturdayPracticeRows(initial = false) {
+      const monthVal = document.getElementById('practice-month-input').value || "2026-09";
+      const [yearStr, monthStr] = monthVal.split('-');
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10);
+
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const newPractices = [];
+      const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month - 1, day);
+        if (d.getDay() === 6) { // 毎週土曜日
+          const dateLabel = `${month}月${day}日（土）`;
+          newPractices.push({
+            date: dateLabel,
+            time: baseTime,
+            place: "野球場北公園",
+            memo: "",
+            hasCleaning: false
+          });
+        }
+      }
+
+      appDB.practices = newPractices;
+      saveDatabase();
+      renderPracticeScheduleTable();
+      if (!initial) showToast(`${month}月度の土曜練習日を展開しました！`);
+    }
+
+    function renderPracticeScheduleTable() {
+      const tbody = document.getElementById('practice-schedule-tbody');
+      tbody.innerHTML = '';
+
+      const timeList = appDB.isSummerTime ? PRACTICE_START_TIMES_SUMMER : PRACTICE_START_TIMES_NORMAL;
+
+      appDB.practices.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+
+        let timeOptions = timeList.map(t => `<option value="${t}" ${item.time === t ? 'selected' : ''}>${t}</option>`).join('');
+        let placeOptions = PRACTICE_PLACES.map(p => `<option value="${p}" ${item.place === p ? 'selected' : ''}>${p}</option>`).join('');
+
+        tr.innerHTML = `
+          <td><input class="table-input" value="${item.date}" oninput="appDB.practices[${idx}].date = this.value; saveDatabase();"></td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              <select style="width: 45%; padding: 2px; font-size: 0.75rem;" onchange="this.nextElementSibling.value = this.value; appDB.practices[${idx}].time = this.value; saveDatabase();">
+                <option value="">選択...</option>
+                ${timeOptions}
+              </select>
+              <input class="table-input" style="width: 55%;" value="${item.time}" oninput="appDB.practices[${idx}].time = this.value; saveDatabase();">
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              <select style="width: 45%; padding: 2px; font-size: 0.75rem;" onchange="updatePracticePlaceRow(${idx}, this.value)">
+                <option value="">選択...</option>
+                ${placeOptions}
+              </select>
+              <input class="table-input" style="width: 55%;" value="${item.place}" oninput="appDB.practices[${idx}].place = this.value; saveDatabase();">
+            </div>
+          </td>
+          <td><input class="table-input" value="${item.memo || ''}" placeholder="※練習前の15分間、清掃活動を行います。" oninput="appDB.practices[${idx}].memo = this.value; saveDatabase();"></td>
+          <td style="text-align: center;"><button class="btn btn-secondary btn-sm" onclick="removePracticeRow(${idx})">×</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updatePracticePlaceRow(idx, newPlace) {
+      appDB.practices[idx].place = newPlace;
+      if (newPlace === "サブトラック") {
+        // 月初めのサブトラ判定
+        const isFirstSubtra = appDB.practices.findIndex(p => p.place === "サブトラック") === idx;
+        if (isFirstSubtra) {
+          appDB.practices[idx].memo = appDB.isSummerTime ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
+          appDB.practices[idx].hasCleaning = true;
+        }
+      } else {
+        if (appDB.practices[idx].memo.includes("清掃活動")) {
+          appDB.practices[idx].memo = "";
+          appDB.practices[idx].hasCleaning = false;
+        }
+      }
+      saveDatabase();
+      renderPracticeScheduleTable();
+    }
+
+    function addPracticeRow() {
+      const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
+      appDB.practices.push({
+        date: "9月○日（土）",
+        time: baseTime,
+        place: "野球場北公園",
+        memo: "",
+        hasCleaning: false
+      });
+      saveDatabase();
+      renderPracticeScheduleTable();
+    }
+
+    function removePracticeRow(idx) {
+      appDB.practices.splice(idx, 1);
+      saveDatabase();
+      renderPracticeScheduleTable();
+    }
+
+    // 競技場カレンダー写真/PDFの読み取り & 判定ロジック
+    async function handleStadiumCalendarFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const statusEl = document.getElementById('status-stadium-calendar');
+      statusEl.innerText = 'カレンダー解析中...';
+      showToast('カレンダーの大会予定を照合中...');
+
+      let text = '';
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        text = await extractFileText(file);
+      } else {
+        const result = await Tesseract.recognize(file, 'jpn');
+        text = result.data.text;
+      }
+
+      // 月の特定
+      const monthMatch = text.match(/([0-9]{1,2})\s*月/);
+      let detectedMonth = 9;
+      if (monthMatch) {
+        detectedMonth = parseInt(monthMatch[1], 10);
+        const currentYear = new Date().getFullYear();
+        document.getElementById('practice-month-input').value = `${currentYear}-${String(detectedMonth).padStart(2, '0')}`;
+      }
+
+      generateSaturdayPracticeRows(true);
+
+      // 大会キーワード判定
+      const trackKeywords = ["陸協", "記録会", "選手権", "予選", "新人", "カーニバル", "小学生", "中学", "高校", "大会", "交歓会"];
+      const lines = text.split('\n');
+
+      appDB.practices.forEach(p => {
+        const dayMatch = p.date.match(/([0-9]{1,2})日/);
+        if (dayMatch) {
+          const dayNum = dayMatch[1];
+          const relevant = lines.filter(l => l.includes(dayNum) || l.includes(`${dayNum}日`));
+          const hasTrackEvent = relevant.some(l => trackKeywords.some(kw => l.includes(kw)));
+          
+          if (hasTrackEvent) {
+            p.place = "野球場北公園";
+            p.memo = "";
+            p.hasCleaning = false;
+          } else {
+            p.place = "サブトラック";
+          }
+        }
+      });
+
+      // 最初のサブトラック練習に清掃を自動割り当て
+      let cleaned = false;
+      appDB.practices.forEach(p => {
+        if (!cleaned && p.place === "サブトラック") {
+          p.memo = appDB.isSummerTime ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
+          p.hasCleaning = true;
+          cleaned = true;
+        }
+      });
+
+      saveDatabase();
+      renderPracticeScheduleTable();
+      statusEl.innerText = '✓ カレンダー判定完了';
+      showToast('カレンダー判定に基づいて練習場所を決定しました！');
+    }
+
+    // らくらく連絡網 練習予定配信文の生成（任意項目対応・実物完全再現）
+    function generatePracticeBroadcastMessage() {
+      const monthVal = document.getElementById('practice-month-input').value || "2026-09";
+      const monthStr = monthVal.split('-')[1] || "9";
+      const month = parseInt(monthStr, 10);
+      const sender = document.getElementById('inp-sender').value || '久保';
+      const items = (document.getElementById('inp-practice-items').value || '').trim();
+      const notes = (document.getElementById('inp-practice-notes').value || '').trim().replace(/\\n/g, '\n');
+
+      let msg = `皆様\n\n早速ですが、${month}月の練習予定をお知らせします。\n\n`;
+
+      appDB.practices.forEach(p => {
+        msg += `✅日時：${p.date}${p.time}\n`;
+        msg += `✅場所：${p.place}\n`;
+        if (p.memo && p.memo.trim()) {
+          msg += `${p.memo.trim()}\n`;
+        }
+        msg += `\n`;
+      });
+
+      // 持ち物が入力されている場合のみ出力
+      if (items) {
+        msg += `✅持ち物：${items}\n\n`;
+      }
+
+      // その他連絡事項が入力されている場合のみ出力
+      if (notes) {
+        msg += `✅その他：\n${notes}\n\n`;
+      }
+
+      msg += `ご質問等ありましたら、お気軽にメールにてお問い合わせ下さい。\nnamuro.rc@gmail.com\n\n${sender}`;
+
+      document.getElementById('practice-message-preview').innerText = msg;
+      document.getElementById('practice-preview-card').style.display = 'block';
+      showToast('練習予定の配信文を生成しました！');
+    }
+
+    function copyPracticeMessage() {
+      navigator.clipboard.writeText(document.getElementById('practice-message-preview').innerText).then(() => {
+        showToast('配信本文をクリップボードにコピーしました！');
+      });
+    }
+
+    /* -------------------------------------------------------------
+       大会運営ハブ & 既存機能
+    ------------------------------------------------------------- */
     function normalizeDocText(text) {
       if (!text) return '';
       return text
@@ -604,7 +950,6 @@
         .replace(/～/g, '~');
     }
 
-    // 内蔵スマート解析エンジン（AI通信不可時の自動フォールバック）
     function parseYoukouSmartEngine(rawText) {
       const res = { title: null, date: null, place: null, fee: null, items: null };
       if (!rawText) return res;
@@ -696,125 +1041,45 @@
       return res;
     }
 
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // AI・スマートハイブリッド解析エンジン（順次モデル試行 ＋ 自動フォールバック）
-    async function analyzeYoukouWithGemini(files) {
-      let fullDocText = '';
-      const inlineParts = [];
-
-      for (const file of files) {
-        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-          const pdfText = await extractFileText(file);
-          fullDocText += `\n--- 要項ファイル (${file.name}) ---\n` + pdfText;
-        } else {
-          const base64 = await fileToBase64(file);
-          inlineParts.push({
-            inlineData: {
-              mimeType: file.type || 'image/jpeg',
-              data: base64
-            }
-          });
-        }
-      }
-
-      const apiKey = getApiKey();
-      const modelsToTry = [
-        'gemini-2.0-flash',
-        'gemini-1.5-flash'
-      ];
-
-      const systemPrompt = "あなたは陸上競技クラブ（安室RC）の要項解析アシスタントです。要項から情報を抽出しJSONを出力してください。";
-      const userPrompt = `要項内容から以下の5項目を抽出し、指定のJSON形式のみで出力してください。
-
-【項目】
-1. "title": 大会の正式名称（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）
-2. "date": 大会の開催日時（例: "2026年6月21日(日) 競技開始9:00予定"）
-3. "place": 会場名（例: "姫路市陸上競技場(ウインク陸上競技場)"）
-4. "fee": 個人種目の参加料（例: "600円"）
-5. "items": 実施種目（例: "5年100m, 6年100m, コンバインドA/B, リレー"）
-
-${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
-
-      const payload = {
-        contents: [{ parts: [{ text: userPrompt }, ...inlineParts] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      };
-
-      if (apiKey) {
-        for (const model of modelsToTry) {
-          try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            if (resp.ok) {
-              const data = await resp.json();
-              const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (jsonStr) {
-                return JSON.parse(jsonStr);
-              }
-            }
-          } catch (e) {
-            console.warn(`Model ${model} try failed:`, e);
-          }
-        }
-      }
-
-      // AI通信が失敗・未設定の場合は自動で内蔵スマートエンジンに切り替え
-      console.log("Fallback to smart engine");
-      return parseYoukouSmartEngine(fullDocText);
-    }
-
-    async function createEventByAiYoukouFile(event) {
+    async function createEventByYoukouFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      showToast(`📑 要項を自動解析中...`);
+      showToast(`📑 ${files.length}件の要項ファイルを解析中...`);
 
-      try {
-        const parsed = await analyzeYoukouWithGemini(files);
-
-        const newId = 'evt_' + Date.now();
-        const newEv = {
-          id: newId,
-          title: parsed.title || files[0].name.replace(/\.[^/.]+$/, ""),
-          date: parsed.date || '',
-          place: parsed.place || '',
-          fee: parsed.fee || '600円',
-          items: parsed.items || '',
-          url: '', limit: '',
-          sender: document.getElementById('inp-sender').value || '久保',
-          status: { youkou: true, csv: false, schedule: false, startlist: false },
-          entries: [],
-          hasRelay: false,
-          relayMode: 'auto',
-          timetable: []
-        };
-
-        appDB.events[newId] = newEv;
-        appDB.activeId = newId;
-        saveDatabase();
-        renderEventSelector();
-        loadActiveEventToUI();
-
-        event.target.value = '';
-        showToast(`✨「${newEv.title}」を解析して新規登録しました！`);
-      } catch (err) {
-        console.error(err);
-        showToast('解析を完了しました');
+      let combinedText = '';
+      for (const f of files) {
+        combinedText += (await extractFileText(f)) + '\n\n';
       }
+
+      const parsed = parseYoukouSmartEngine(combinedText);
+      const title = parsed.title || files[0].name.replace(/\.[^/.]+$/, "").replace(/[\s_]*(?:要項|実施要項|案内)$/, '');
+
+      const newId = 'evt_' + Date.now();
+      const newEv = {
+        id: newId,
+        title: title,
+        date: parsed.date || '',
+        place: parsed.place || '',
+        fee: parsed.fee || '600円',
+        items: parsed.items || '',
+        url: '', limit: '',
+        sender: document.getElementById('inp-sender').value || '久保',
+        status: { youkou: true, csv: false, schedule: false, startlist: false },
+        entries: [],
+        hasRelay: false,
+        relayMode: 'auto',
+        timetable: []
+      };
+
+      appDB.events[newId] = newEv;
+      appDB.activeId = newId;
+      saveDatabase();
+      renderEventSelector();
+      loadActiveEventToUI();
+
+      event.target.value = '';
+      showToast(`✨「${title}」を解析して新規登録しました！`);
     }
 
     function createNewEvent() {
@@ -930,21 +1195,6 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
       renderEventSelector();
     }
 
-    function switchMainTab(evt, tabId) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      evt.currentTarget.classList.add('active');
-      document.getElementById(tabId).classList.add('active');
-    }
-
-    function switchSubTab(evt, subTabId) {
-      document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.sub-content').forEach(content => content.classList.remove('active'));
-      evt.currentTarget.classList.add('active');
-      document.getElementById(subTabId).classList.add('active');
-      if (subTabId === 'sub-timetable') updateTimeTablePrint();
-    }
-
     function printDocument(type) {
       const originalTitle = document.title;
       const ev = appDB.events[appDB.activeId];
@@ -966,23 +1216,21 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
 
       if (type === 'youkou') {
         setDropStatus('youkou', '解析中...');
-        try {
-          const parsed = await analyzeYoukouWithGemini(files);
-          if (parsed.title) ev.title = parsed.title;
-          if (parsed.date) ev.date = parsed.date;
-          if (parsed.place) ev.place = parsed.place;
-          if (parsed.fee) ev.fee = parsed.fee;
-          if (parsed.items) ev.items = parsed.items;
+        let text = '';
+        for (const f of files) text += (await extractFileText(f)) + '\n\n';
+        
+        const parsed = parseYoukouSmartEngine(text);
+        if (parsed.title) ev.title = parsed.title;
+        if (parsed.date) ev.date = parsed.date;
+        if (parsed.place) ev.place = parsed.place;
+        if (parsed.fee) ev.fee = parsed.fee;
+        if (parsed.items) ev.items = parsed.items;
 
-          ev.status.youkou = true;
-          setDropStatus('youkou', `✓ 解析完了 (${files.length}件)`);
-          document.getElementById('drop-youkou').classList.add('loaded');
-          loadActiveEventToUI();
-          showToast('要項の情報を自動反映しました！');
-        } catch (err) {
-          console.error(err);
-          setDropStatus('youkou', '完了');
-        }
+        ev.status.youkou = true;
+        setDropStatus('youkou', `✓ ${files.length}件解析完了`);
+        document.getElementById('drop-youkou').classList.add('loaded');
+        loadActiveEventToUI();
+        showToast('要項の全項目を正確に反映しました！');
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
         const reader = new FileReader();
@@ -1030,6 +1278,9 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
+      } else if (file.type.startsWith('image/')) {
+        const result = await Tesseract.recognize(file, 'jpn');
+        return result.data.text;
       } else {
         return await file.text();
       }
@@ -1540,4 +1791,3 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
   </script>
 </body>
 </html>
-
