@@ -6,8 +6,6 @@
   <title id="app-page-title">安室RC役員アプリ</title>
   <!-- PDF.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Tesseract.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -146,11 +144,12 @@
     }
     .player-card-header { font-weight: bold; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; }
 
-    .badge { padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; display: inline-block; cursor: pointer; }
-    .badge-orange { background: #ffedd5; color: #c2410c; }
-    .badge-green { background: #dcfce7; color: #15803d; }
-    .badge-blue { background: #e0f2fe; color: #0369a1; }
-    .badge-gray { background: #f1f5f9; color: #475569; }
+    .badge { padding: 3px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: bold; display: inline-block; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+    .badge:hover { opacity: 0.85; transform: scale(1.02); }
+    .badge-orange { background: #ffedd5; color: #c2410c; border-color: #fdba74; }
+    .badge-blue { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
+    .badge-green { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .badge-gray { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
     .btn {
       padding: 8px 14px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
@@ -167,7 +166,6 @@
     .btn-danger { background: #ef4444; color: white; }
     .btn-danger:hover { background: #dc2626; }
     .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
-    .btn-xs { padding: 2px 6px; font-size: 0.7rem; border-radius: 4px; }
 
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; color: var(--text-muted); }
@@ -182,7 +180,6 @@
       white-space: pre-wrap; font-size: 0.92rem; line-height: 1.65; max-height: 520px; overflow-y: auto;
     }
 
-    /* 切替トグル用ボタングループ */
     .toggle-group {
       display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 6px; gap: 2px;
     }
@@ -225,7 +222,7 @@
   <header>
     <div class="header-tools">
       <button class="btn btn-sm btn-purple" onclick="openApiKeyModal()">🔑 APIキー設定</button>
-      <div class="version-tag">ver 1.8.5 (AIカレンダー認識版)</div>
+      <div class="version-tag">ver 1.8.6 (清掃自動判定＆高精度AI版)</div>
     </div>
     <h1>🏃 安室RC役員アプリ</h1>
     <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
@@ -319,7 +316,7 @@
             </div>
             <div class="form-group">
               <label>発信役員名（署名）</label>
-              <input id="inp-sender" value="久保" placeholder="例: 久保、桝本、山道" oninput="saveCurrentEventData()">
+              <input id="inp-sender" value="久保" placeholder="例: 久保、桝本、山道" oninput="syncSenderName(this.value)">
             </div>
           </div>
 
@@ -473,15 +470,15 @@
 
     </div>
 
-    <!-- メインタブ2: 月間練習予定作成（AI画像認識・完全連動版） -->
+    <!-- メインタブ2: 月間練習予定作成（清掃自動連動＆高精度版） -->
     <div id="tab-schedule-manager" class="tab-content">
       <div class="card no-print">
         <h2>📅 1. 競技場カレンダー読込 & AI自動判定</h2>
         <div class="drop-grid">
           <div class="hub-dropzone" onclick="document.getElementById('input-stadium-calendar').click()">
             <div class="icon">🏟️</div>
-            <div class="title">競技場カレンダー写真/PDFを読込 (AI解析)</div>
-            <div class="desc">ウインクカレンダーの大会有無をAIが画像認識<br>（大会あり ➔ 野球場北公園、なし ➔ サブトラ）</div>
+            <div class="title">競技場カレンダー写真/PDFを読込 (高精度AI)</div>
+            <div class="desc">ウインクカレンダーの大会有無をAIが直接画像認識<br>（大会あり ➔ 野球場北公園、なし ➔ サブトラ）</div>
             <div class="status" id="status-stadium-calendar"></div>
             <input type="file" id="input-stadium-calendar" accept=".pdf, .png, .jpg, .jpeg, .webp, .heic" onchange="handleStadiumCalendarFile(event)">
           </div>
@@ -499,7 +496,7 @@
               </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 0.75rem; color: var(--text-muted);">※毎週土曜日＋月初清掃を自動生成</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">※毎週土曜日＋月初清掃を自動計算</span>
               <button class="btn btn-secondary btn-sm" onclick="generateSaturdayPracticeRows()">🔄 土曜練習日を一括展開</button>
             </div>
           </div>
@@ -519,7 +516,7 @@
                 <th style="width: 18%;">日付 (曜日)</th>
                 <th style="width: 16%;">開始時間</th>
                 <th style="width: 34%;">練習場所 (クイック切替)</th>
-                <th style="width: 24%;">注記（清掃案内など）</th>
+                <th style="width: 24%;">注記（清掃案内など・自動付与）</th>
                 <th style="width: 8%; text-align: center;">操作</th>
               </tr>
             </thead>
@@ -529,13 +526,18 @@
 
         <div class="form-row" style="margin-top: 15px;">
           <div class="form-group">
-            <label>持ち物リスト（任意入力：入力時のみ「✅持ち物：」として出力）</label>
-            <input id="inp-practice-items" value="" placeholder="例: 水分（多めに）、タオル、着替え等、必要なもの">
+            <label>発信役員名（署名）</label>
+            <input id="inp-practice-sender" value="久保" placeholder="例: 久保、桝本、山道" oninput="syncSenderName(this.value)">
           </div>
           <div class="form-group">
-            <label>その他・連絡事項（任意入力：入力時のみ「✅その他：」として出力）</label>
-            <input id="inp-practice-notes" value="" placeholder="例: ・熱中症警戒アラートや雨天等で中止になる場合は、開始1時間前を目処にメールにてご連絡します。">
+            <label>持ち物リスト（任意入力：入力時のみ「✅持ち物：」を出力）</label>
+            <input id="inp-practice-items" value="" placeholder="例: 水分（多めに）、タオル、着替え等、必要なもの">
           </div>
+        </div>
+
+        <div class="form-group">
+          <label>その他・連絡事項（任意入力：入力時のみ「✅その他：」を出力）</label>
+          <input id="inp-practice-notes" value="" placeholder="例: ・熱中症警戒アラートや雨天等で中止になる場合は、開始1時間前を目処にメールにてご連絡します。">
         </div>
 
         <button class="btn btn-primary" onclick="generatePracticeBroadcastMessage()" style="width: 100%; margin-top: 8px;">✨ らくらく連絡網 練習予定配信文を生成</button>
@@ -607,13 +609,15 @@
   <div id="toast">コピーしました！</div>
 
   <script>
-    let appDB = { activeId: '', events: {}, practices: [], isSummerTime: false };
+    let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: false };
 
     function initDatabase() {
-      const saved = localStorage.getItem('amuro_app_db_v185');
+      const saved = localStorage.getItem('amuro_app_db_v186');
       if (saved) {
         try { appDB = JSON.parse(saved); } catch(e) { console.error(e); }
       }
+
+      if (!appDB.senderName) appDB.senderName = '久保';
 
       if (!appDB.events || Object.keys(appDB.events).length === 0) {
         const defId = 'evt_' + Date.now();
@@ -627,7 +631,7 @@
           items: '男子100m/1500m, 女子100m/800m, リレー各個人種目',
           url: 'https://chouseisan.com/s/...',
           limit: '5月23日（土）練習終了時まで',
-          sender: '久保',
+          sender: appDB.senderName,
           status: { youkou: false, csv: false, schedule: false, startlist: false },
           entries: [],
           hasRelay: false,
@@ -652,10 +656,23 @@
       loadActiveEventToUI();
       renderPracticeScheduleTable();
       updateSummerTimeToggleUI();
+      syncSenderName(appDB.senderName, false);
     }
 
     function saveDatabase() {
-      localStorage.setItem('amuro_app_db_v185', JSON.stringify(appDB));
+      localStorage.setItem('amuro_app_db_v186', JSON.stringify(appDB));
+    }
+
+    function syncSenderName(name, updateEv = true) {
+      appDB.senderName = name;
+      const inp1 = document.getElementById('inp-sender');
+      const inp2 = document.getElementById('inp-practice-sender');
+      if (inp1 && inp1.value !== name) inp1.value = name;
+      if (inp2 && inp2.value !== name) inp2.value = name;
+      if (updateEv && appDB.events[appDB.activeId]) {
+        appDB.events[appDB.activeId].sender = name;
+      }
+      saveDatabase();
     }
 
     function openApiKeyModal() {
@@ -713,17 +730,53 @@
       if (subTabId === 'sub-timetable') updateTimeTablePrint();
     }
 
-    function fileToBase64(file) {
+    // 画像ファイルを確実にJPEG正規化してBase64化する関数（AI認識率を極大化）
+    function fileToNormalizedBase64(file) {
       return new Promise((resolve, reject) => {
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ data: reader.result.split(',')[1], mimeType: 'application/pdf' });
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+          return;
+        }
+
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1800;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            resolve({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+          };
+          img.onerror = () => {
+            resolve({ data: e.target.result.split(',')[1], mimeType: file.type || 'image/jpeg' });
+          };
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
 
     /* -------------------------------------------------------------
-       安室RC特化：月間練習予定（AI画像認識 ＆ 実物完全再現）
+       安室RC特化：月間練習予定（清掃自動連動 & 実物完全再現）
     ------------------------------------------------------------- */
     const PRACTICE_PLACES = [
       "野球場北公園",
@@ -751,6 +804,35 @@
       "休み"
     ];
 
+    // 月初めのサブトラック練習日を自動特定して清掃文言を再計算するコア関数
+    function recalculateCleaningSchedule() {
+      const cleanMsg = appDB.isSummerTime 
+        ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" 
+        : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
+
+      let firstSubtraFound = false;
+
+      appDB.practices.forEach(p => {
+        if (p.place === "サブトラック") {
+          if (!firstSubtraFound) {
+            p.memo = cleanMsg;
+            p.hasCleaning = true;
+            firstSubtraFound = true;
+          } else {
+            if (p.memo.includes("清掃活動")) {
+              p.memo = "";
+            }
+            p.hasCleaning = false;
+          }
+        } else {
+          if (p.memo.includes("清掃活動")) {
+            p.memo = "";
+          }
+          p.hasCleaning = false;
+        }
+      });
+    }
+
     function setSummerTimeMode(isSummer) {
       appDB.isSummerTime = isSummer;
       updateSummerTimeToggleUI();
@@ -759,12 +841,10 @@
       appDB.practices.forEach(p => {
         if (!p.place.includes("休み") && !p.place.includes("大会")) {
           p.time = targetTime;
-          if (p.hasCleaning) {
-            p.memo = isSummer ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
-          }
         }
       });
 
+      recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
       showToast(isSummer ? 'サマータイム（7時〜）に切り替えました！' : '通常時間（8時30分〜）に切り替えました！');
@@ -807,6 +887,7 @@
       }
 
       appDB.practices = newPractices;
+      recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
       if (!initial) showToast(`${month}月度の土曜練習日を展開しました！`);
@@ -824,7 +905,6 @@
 
       appDB.practices.forEach((item, idx) => {
         const tr = document.createElement('tr');
-
         let timeOptions = timeList.map(t => `<option value="${t}" ${item.time === t ? 'selected' : ''}>${t}</option>`).join('');
 
         tr.innerHTML = `
@@ -840,7 +920,7 @@
           </td>
           <td>
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <input class="table-input" style="font-weight: bold; color: ${item.place === '野球場北公園' ? '#ea580c' : (item.place === 'サブトラック' ? '#0284c7' : '#1e293b')};" value="${item.place}" oninput="appDB.practices[${idx}].place = this.value; saveDatabase();">
+              <input class="table-input" style="font-weight: bold; color: ${item.place === '野球場北公園' ? '#ea580c' : (item.place === 'サブトラック' ? '#0284c7' : '#1e293b')};" value="${item.place}" oninput="updatePracticePlaceRow(${idx}, this.value)">
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                 <span class="badge ${item.place === '野球場北公園' ? 'badge-orange' : 'badge-gray'}" onclick="setQuickPlace(${idx}, '野球場北公園')">北公園</span>
                 <span class="badge ${item.place === 'サブトラック' ? 'badge-blue' : 'badge-gray'}" onclick="setQuickPlace(${idx}, 'サブトラック')">サブトラ</span>
@@ -858,22 +938,7 @@
 
     function updatePracticePlaceRow(idx, newPlace) {
       appDB.practices[idx].place = newPlace;
-      if (newPlace === "サブトラック") {
-        // 月初めのサブトラ判定
-        const isFirstSubtra = appDB.practices.findIndex(p => p.place === "サブトラック") === idx;
-        if (isFirstSubtra) {
-          appDB.practices[idx].memo = appDB.isSummerTime ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
-          appDB.practices[idx].hasCleaning = true;
-        } else {
-          appDB.practices[idx].memo = "";
-          appDB.practices[idx].hasCleaning = false;
-        }
-      } else {
-        if (appDB.practices[idx].memo.includes("清掃活動")) {
-          appDB.practices[idx].memo = "";
-          appDB.practices[idx].hasCleaning = false;
-        }
-      }
+      recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
     }
@@ -887,23 +952,25 @@
         memo: "",
         hasCleaning: false
       });
+      recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
     }
 
     function removePracticeRow(idx) {
       appDB.practices.splice(idx, 1);
+      recalculateCleaningSchedule();
       saveDatabase();
       renderPracticeScheduleTable();
     }
 
-    // 競技場カレンダー写真/PDFのGemini AI直接画像認識 & 判定ロジック
+    // 競技場カレンダー写真/PDFのGemini AI高精度画像認識 & 自動判定エンジン
     async function handleStadiumCalendarFile(event) {
       const file = event.target.files[0];
       if (!file) return;
 
       const statusEl = document.getElementById('status-stadium-calendar');
-      statusEl.innerText = 'AI画像解析中...';
+      statusEl.innerText = 'AI精密解析中...';
       showToast('🤖 AIがカレンダー写真を直接画像認識・判定中...');
 
       const apiKey = getApiKey();
@@ -911,23 +978,22 @@
 
       if (apiKey) {
         try {
-          const base64Data = await fileToBase64(file);
-          const mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+          const normFile = await fileToNormalizedBase64(file);
 
           const prompt = `
 あなたは陸上クラブ（安室RC）の運営責任者です。
-添付された競技場（ウインク陸上競技場等）の月間予定表・カレンダー画像（またはPDF）を隅々まで正確に読み取ってください。
+添付された競技場（ウインク陸上競技場・姫路市陸上競技場）の月間行事予定表・カレンダー画像（またはPDF）を隅々まで正確に読み取ってください。
 
 【安室RCの判定ルール】
 1. カレンダーに記載されている対象月（例: 9月）の「すべての土曜日」の日付を抽出してください。
-2. 各土曜日の競技場イベント内容を確認し、以下のように判定してください：
-   - 陸上大会、記録会、選手権、総体、新人戦、交流大会、リレーカーニバル、学年別陸上などの「陸上競技大会」がある場合 ➔ 場所は "野球場北公園"（サブトラがアップで占有されるため）
-   - サッカー、ラグビー、陸上教室、他競技、一般開放、空きなどの場合 ➔ 場所は "サブトラック"
-   - 専用利用/貸切が確保されている場合 ➔ 場所は "ウインク陸上競技場"
+2. 各土曜日の行事・大会欄を確認し、以下のように判定してください：
+   - 陸上大会、陸協記録会、選手権、総体、新人戦、交流大会、リレーカーニバル、学年別陸上などの「陸上競技大会」がある場合 ➔ place: "野球場北公園"（サブトラックがウォーミングアップ等で占有されるため使用不可）
+   - サッカー、ラグビー、陸上教室、他競技、一般開放、空欄などの場合 ➔ place: "サブトラック"
+   - 専用利用/貸切が確保されている場合 ➔ place: "ウインク陸上競技場"
 3. "month": カレンダーの対象月（数値、例: 9）
 4. 出力は以下のJSONスキーマのみを厳格に出力してください。
 
-JSON構造:
+JSON形式:
 {
   "month": 9,
   "saturdays": [
@@ -946,7 +1012,7 @@ JSON構造:
             contents: [{
               parts: [
                 { text: prompt },
-                { inlineData: { mimeType: mimeType, data: base64Data } }
+                { inlineData: { mimeType: normFile.mimeType, data: normFile.data } }
               ]
             }],
             generationConfig: {
@@ -993,95 +1059,39 @@ JSON構造:
 
         const baseTime = appDB.isSummerTime ? "7時〜" : "8時30分〜";
         const newPractices = [];
-        let firstSubtraFound = false;
 
         aiResult.saturdays.forEach(sat => {
           let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラック");
-          let memo = "";
-          let hasCleaning = false;
-
-          if (place === "サブトラック" && !firstSubtraFound) {
-            firstSubtraFound = true;
-            hasCleaning = true;
-            memo = appDB.isSummerTime ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
-          }
-
           newPractices.push({
             date: sat.date,
             time: baseTime,
             place: place,
-            memo: memo,
-            hasCleaning: hasCleaning
+            memo: "",
+            hasCleaning: false
           });
         });
 
         appDB.practices = newPractices;
+        recalculateCleaningSchedule(); // 月初めサブトラ清掃を自動割り当て
         saveDatabase();
         renderPracticeScheduleTable();
         statusEl.innerText = `✓ AI解析完了 (${newPractices.length}日分)`;
-        showToast('✨ AIがカレンダーの大会有無を正確に判定して反映しました！');
+        showToast('✨ AIがカレンダーを精密認識して場所と清掃を自動設定しました！');
         return;
       }
 
-      // フォールバック（OCR＆キーワード判定）
-      let text = '';
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        text = await extractFileText(file);
-      } else {
-        const result = await Tesseract.recognize(file, 'jpn');
-        text = result.data.text;
-      }
-
-      const monthMatch = text.match(/([0-9]{1,2})\s*月/);
-      if (monthMatch) {
-        const detectedMonth = parseInt(monthMatch[1], 10);
-        const currentYear = new Date().getFullYear();
-        document.getElementById('practice-month-input').value = `${currentYear}-${String(detectedMonth).padStart(2, '0')}`;
-      }
-
-      generateSaturdayPracticeRows(true);
-
-      const trackKeywords = ["陸協", "記録会", "選手権", "予選", "新人", "カーニバル", "小学生", "中学", "高校", "大会", "交歓会", "総体", "陸上"];
-      const lines = text.split('\n');
-
-      appDB.practices.forEach(p => {
-        const dayMatch = p.date.match(/([0-9]{1,2})日/);
-        if (dayMatch) {
-          const dayNum = dayMatch[1];
-          const relevant = lines.filter(l => l.includes(dayNum) || l.includes(`${dayNum}日`));
-          const hasTrackEvent = relevant.some(l => trackKeywords.some(kw => l.includes(kw)));
-          
-          if (hasTrackEvent) {
-            p.place = "野球場北公園";
-            p.memo = "";
-            p.hasCleaning = false;
-          } else {
-            p.place = "サブトラック";
-          }
-        }
-      });
-
-      let cleaned = false;
-      appDB.practices.forEach(p => {
-        if (!cleaned && p.place === "サブトラック") {
-          p.memo = appDB.isSummerTime ? "※練習前の15分間、清掃活動を行います。（6時45分〜）" : "※練習前の15分間、清掃活動を行います。（8時15分〜）";
-          p.hasCleaning = true;
-          cleaned = true;
-        }
-      });
-
-      saveDatabase();
-      renderPracticeScheduleTable();
-      statusEl.innerText = '✓ カレンダー判定完了';
-      showToast('カレンダーの判定を反映しました！');
+      // フォールバック
+      generateSaturdayPracticeRows(false);
+      statusEl.innerText = '✓ カレンダー展開完了';
+      showToast('土曜練習日を展開しました（各行のバッジで調整できます）');
     }
 
-    // らくらく連絡網 練習予定配信文の生成（完全再現版）
+    // らくらく連絡網 練習予定配信文の生成（実物完全再現）
     function generatePracticeBroadcastMessage() {
       const monthVal = document.getElementById('practice-month-input').value || "2026-09";
       const monthStr = monthVal.split('-')[1] || "9";
       const month = parseInt(monthStr, 10);
-      const sender = document.getElementById('inp-sender').value || '久保';
+      const sender = (document.getElementById('inp-practice-sender').value || appDB.senderName || '久保').trim();
       const items = (document.getElementById('inp-practice-items').value || '').trim();
       const notes = (document.getElementById('inp-practice-notes').value || '').trim().replace(/\\n/g, '\n');
 
@@ -1104,7 +1114,7 @@ JSON構造:
         msg += `✅その他：\n${notes}\n\n`;
       }
 
-      msg += `ご質問等ありましたら、お気軽にメールにてお問い合わせ下さい。\nnamuro.rc@gmail.com\n\n${sender}`;
+      msg += `ご質問等ありましたら、お気軽にメールにてお問い合わせ下さい。\namuro.rc@gmail.com\n\n${sender}`;
 
       document.getElementById('practice-message-preview').innerText = msg;
       document.getElementById('practice-preview-card').style.display = 'block';
@@ -1240,11 +1250,11 @@ JSON構造:
           const pdfText = await extractFileText(file);
           fullDocText += `\n--- 要項ファイル (${file.name}) ---\n` + pdfText;
         } else {
-          const base64 = await fileToBase64(file);
+          const norm = await fileToNormalizedBase64(file);
           inlineParts.push({
             inlineData: {
-              mimeType: file.type || 'image/jpeg',
-              data: base64
+              mimeType: norm.mimeType,
+              data: norm.data
             }
           });
         }
@@ -1311,7 +1321,7 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           fee: parsed.fee || '600円',
           items: parsed.items || '',
           url: '', limit: '',
-          sender: document.getElementById('inp-sender').value || '久保',
+          sender: appDB.senderName || '久保',
           status: { youkou: true, csv: false, schedule: false, startlist: false },
           entries: [],
           hasRelay: false,
@@ -1342,7 +1352,7 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
         id: newId,
         title: name,
         date: '', place: '', fee: '600円', items: '', url: '', limit: '',
-        sender: document.getElementById('inp-sender').value || '久保',
+        sender: appDB.senderName || '久保',
         status: { youkou: false, csv: false, schedule: false, startlist: false },
         entries: [],
         hasRelay: false,
@@ -1379,7 +1389,8 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
 
       document.getElementById('custom-event-title').value = ev.title || '';
       document.getElementById('tt-event-title').value = ev.title || '';
-      document.getElementById('inp-sender').value = ev.sender || '久保';
+      document.getElementById('inp-sender').value = ev.sender || appDB.senderName || '久保';
+      document.getElementById('inp-practice-sender').value = ev.sender || appDB.senderName || '久保';
       updatePrintHeader();
 
       ['youkou', 'csv', 'schedule', 'startlist'].forEach(k => {
@@ -1531,9 +1542,6 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
           fullText += content.items.map(item => item.str).join(' ') + '\n';
         }
         return fullText;
-      } else if (file.type.startsWith('image/')) {
-        const result = await Tesseract.recognize(file, 'jpn');
-        return result.data.text;
       } else {
         return await file.text();
       }
@@ -1655,7 +1663,7 @@ ${fullDocText ? `【要項本文テキスト】\n${fullDocText}` : ''}`;
 
     function generateMessage() {
       const type = document.getElementById('tpl-select').value;
-      const sender = document.getElementById('inp-sender').value || '久保';
+      const sender = (document.getElementById('inp-sender').value || appDB.senderName || '久保').trim();
       let msg = '';
 
       if (type === '募集') {
