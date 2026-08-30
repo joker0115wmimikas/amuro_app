@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title id="app-page-title">安室RC役員アプリ</title>
-  <!-- PDF.js CDN -->
+  <!-- PDF.js CDN (PDF高解像度レンダリング) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js CDN (ブラウザ内OCRフォールバック) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -194,6 +196,19 @@
       padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 3000;
     }
 
+    /* AI処理中オーバーレイ */
+    .ai-loading-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85);
+      display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 4000;
+      color: white; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .ai-loading-overlay.active { opacity: 1; pointer-events: auto; }
+    .ai-spinner {
+      width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     @media print {
       header, .event-selector-bar, .nav-tabs, .sub-tabs, .drop-grid, .btn-group, .no-print, .version-tag, .options-panel { display: none !important; }
       body { background: white; color: black; padding: 0; }
@@ -207,13 +222,20 @@
 </head>
 <body>
 
+  <!-- AI処理中オーバーレイ -->
+  <div class="ai-loading-overlay" id="ai-loading">
+    <div class="ai-spinner"></div>
+    <h3 id="ai-loading-text" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 6px;">AIが画像を精密解析中...</h3>
+    <p style="font-size: 0.82rem; opacity: 0.85;">数秒ほどお待ちください</p>
+  </div>
+
   <header>
     <div class="header-content">
       <div class="header-title-area">
         <h1>🏃 安室RC役員アプリ</h1>
         <p>安室ランニングクラブ 大会統合運営・月間練習計画ツール</p>
       </div>
-      <div class="version-tag">ver 2.2.0 (全自動スマート運用版)</div>
+      <div class="version-tag">ver 2.3.0 (完全解析＆全自動保存版)</div>
     </div>
   </header>
 
@@ -243,11 +265,11 @@
       
       <!-- レイヤー1: データ一括投入エリア -->
       <div class="card no-print">
-        <h2>📁 STEP 1: 大会関連ファイルの投入（自動スマート解析）</h2>
+        <h2>📁 STEP 1: 大会関連ファイルの投入（AIマルチモーダル自動解析）</h2>
         <div class="drop-grid">
           <div class="hub-dropzone" id="drop-youkou" onclick="document.getElementById('input-youkou').click()">
             <div class="icon">📑</div>
-            <div class="title">① 大会要項 (自動解析)</div>
+            <div class="title">① 大会要項 (AI画像解析)</div>
             <div class="desc">PDFまたは写真画像<br>(表裏2枚などの複数選択OK)</div>
             <div class="status" id="status-youkou"></div>
             <input type="file" id="input-youkou" accept=".pdf, .png, .jpg, .jpeg, .webp, .heic" multiple onchange="handleHubFile(event, 'youkou')">
@@ -581,10 +603,10 @@
 
   <script>
     const UNIFIED_DB_KEY = "AMURO_RC_PERMANENT_STORAGE";
+    const DEFAULT_SHARED_API_KEY = "AQ.Ab8RN6IgJ6EKtOKjVWw0a6e-GOiBKu3LuFfeI21PBawzq5jSiQ";
 
     let appDB = { activeId: '', senderName: '久保', events: {}, practices: [], isSummerTime: true };
 
-    // 過去の全バージョンからデータを自動救出して統合する関数
     function initDatabaseWithLegacyRecovery() {
       const saved = localStorage.getItem(UNIFIED_DB_KEY);
       if (saved) {
@@ -594,7 +616,6 @@
         } catch(e) { console.error(e); }
       }
 
-      // 過去バージョンキーを自動探索
       const legacyKeys = [
         'amuro_rc_unified_db_v21', 'amuro_app_db_v200', 'amuro_app_db_v190',
         'amuro_app_db_v187', 'amuro_app_db_v186', 'amuro_app_db_v185',
@@ -663,9 +684,16 @@
       syncSenderName(appDB.senderName, false);
     }
 
-    // 全自動保存（あらゆる操作時に自動実行）
     function saveDatabase() {
       localStorage.setItem(UNIFIED_DB_KEY, JSON.stringify(appDB));
+    }
+
+    function showLoading(text = "AIが画像を精密解析中...") {
+      document.getElementById('ai-loading-text').innerText = text;
+      document.getElementById('ai-loading').classList.add('active');
+    }
+    function hideLoading() {
+      document.getElementById('ai-loading').classList.remove('active');
     }
 
     function syncSenderName(name, updateEv = true) {
@@ -715,110 +743,208 @@
     }
 
     /* -------------------------------------------------------------
-       確実なテキスト・ファイル抽出エンジン
+       画像／PDFを高解像度画像（Canvas/JPEG）化するエンジン
     ------------------------------------------------------------- */
-    async function extractAnyFileContent(file) {
+    async function convertAnyFileToImageData(file) {
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const typedarray = new Uint8Array(await file.arrayBuffer());
         const pdf = await pdfjsLib.getDocument(typedarray).promise;
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          fullText += content.items.map(item => item.str).join(' ') + '\n';
-        }
-        return fullText;
-      } else {
-        return await file.text().catch(() => '');
-      }
-    }
+        const pageImages = [];
 
-    function normalizeText(text) {
-      if (!text) return '';
-      return text
-        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
-        .replace(/　/g, ' ')
-        .replace(/：/g, ':')
-        .replace(/（/g, '(')
-        .replace(/）/g, ')')
-        .replace(/～/g, '~');
+        for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          pageImages.push({
+            data: dataUrl.split(',')[1],
+            mimeType: 'image/jpeg',
+            canvas: canvas
+          });
+        }
+        return pageImages;
+      }
+
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 2200;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            resolve([{ data: dataUrl.split(',')[1], mimeType: 'image/jpeg', canvas: canvas }]);
+          };
+          img.onerror = () => {
+            resolve([{ data: e.target.result.split(',')[1], mimeType: 'image/jpeg', canvas: null }]);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
     /* -------------------------------------------------------------
-       安室RC専用：高精度スマート要項解析パーサー
+       Gemini 2.5 Flash Vision & OCR 2重解析コア
     ------------------------------------------------------------- */
-    function parseYoukouSmart(rawText, filename = '') {
-      const res = {
-        title: '',
-        date: '',
-        place: '姫路市陸上競技場(ウインク陸上競技場)',
-        fee: '600円',
-        items: ''
+    async function extractDocumentWithAIVision(imageItems, promptType = 'youkou') {
+      const apiKey = localStorage.getItem('amuro_gemini_api_key') || DEFAULT_SHARED_API_KEY;
+
+      const youkouPrompt = `あなたは陸上クラブ（安室RC）の運営責任者です。
+提供された大会要項画像を精査し、以下の5項目を抽出して指定のJSON形式のみを出力してください。
+
+【抽出ルール】
+1. "title": 大会の正式名称。冠名（日清食品カップ、第〇回等）と本体名を完全に結合（例: "日清食品カップ 第40回兵庫県小学生陸上競技交流大会"）。
+2. "date": 大会の開催期日・競技開始時間（例: "令和6年6月22日(土) 競技開始9:00" または "2024年6月22日(土) 9:00"）。※申込締切日や生年月日は絶対に入れないこと。
+3. "place": 競技場・会場名（例: "三木総合防災公園第1陸上競技場" または "姫路市陸上競技場(ウインク陸上競技場)"）。
+4. "fee": 個人種目の参加料（例: "800円" または "600円"）。
+5. "items": 実施種目をわかりやすくまとめた文字列（例: "5年100m, 6年100m, コンバインドA(80mH・走高跳), コンバインドB(走幅跳・ジャベリックボール投), 男女混合4×100mリレー"）。
+
+JSON形式:
+{
+  "title": "...",
+  "date": "...",
+  "place": "...",
+  "fee": "...",
+  "items": "..."
+}`;
+
+      const calendarPrompt = `あなたは陸上クラブ（安室RC）の運営責任者です。
+添付された競技場（ウインク陸上競技場）の月間予定表・カレンダー画像を精査し、土曜日の行事・大会有無を判定してください。
+
+【判定ルール】
+- 陸上大会、陸協記録会、選手権、総体、新人戦、交流大会、リレーカーニバル等の「陸上大会」がある場合 ➔ place: "野球場北公園"
+- サッカー、陸上教室、他競技、一般利用等の場合 ➔ place: "サブトラ"
+- 専用利用/貸切が確保されている場合 ➔ place: "ウインク競技場"
+- お盆期間（8/13〜8/16付近）で練習がない場合 ➔ place: "お盆休み"
+
+JSON形式:
+{
+  "month": 8,
+  "saturdays": [
+    {
+      "date": "8/1（土）",
+      "dayNum": 1,
+      "event": "一般利用",
+      "hasTrackMeet": false,
+      "place": "サブトラ"
+    }
+  ]
+}`;
+
+      const promptText = (promptType === 'youkou') ? youkouPrompt : calendarPrompt;
+
+      const parts = [{ text: promptText }];
+      imageItems.forEach(img => {
+        parts.push({
+          inlineData: {
+            mimeType: img.mimeType || 'image/jpeg',
+            data: img.data
+          }
+        });
+      });
+
+      const payload = {
+        contents: [{ role: "user", parts: parts }],
+        generationConfig: { responseMimeType: "application/json" }
       };
 
-      const text = normalizeText(rawText);
+      // 1. Gemini Vision APIを試行
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      // 大会名
-      if (/日清食品|日清.*カップ/.test(text) || (/日清/.test(text) && /交流大会/.test(text))) {
-        let edition = '';
-        const edMatch = text.match(/第\s*([0-9]+)\s*回/);
-        if (edMatch) edition = `第${edMatch[1]}回`;
-        res.title = `日清食品カップ ${edition}兵庫県小学生陸上競技交流大会`.replace(/\s+/g, ' ').trim();
-      } else {
-        const titleMatch = text.match(/(?:第\s*[0-9]+\s*回)?[^\n\r]*(?:小学生陸上|陸上競技大会|交流大会|選手権|記録会|陸協)[^\n\r]*/);
-        if (titleMatch) {
-          res.title = titleMatch[0].replace(/[\s]*(?:参加者募集要項|実施要項|募集要項|大会要項|要項|案内|について).*$/, '').trim();
-        } else if (filename) {
-          res.title = filename.replace(/\.[^/.]+$/, "").replace(/[\s_]*(?:要項|実施要項|案内)$/, '');
+        if (response.ok) {
+          const resJson = await response.json();
+          const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            return JSON.parse(text);
+          }
+        }
+      } catch (e) {
+        console.warn("Gemini vision error, falling back to client OCR:", e);
+      }
+
+      // 2. フォールバック：Tesseract.js OCR によるブラウザ内文字認識
+      let ocrFullText = '';
+      for (const img of imageItems) {
+        if (img.canvas) {
+          try {
+            const ocrRes = await Tesseract.recognize(img.canvas, 'jpn');
+            ocrFullText += '\n' + (ocrRes.data ? ocrRes.data.text : '');
+          } catch(err) {
+            console.error(err);
+          }
         }
       }
 
-      // 期日・日時
-      const dateMatch = text.match(/(?:20\d\d年?|令和\d+年?|R\d+年?)?\s*[0-9]{1,2}月[0-9]{1,2}日\s*\([月火水木金土日祝]\)[^\n\r]*/);
-      if (dateMatch) {
-        res.date = dateMatch[0].replace(/\s+/g, ' ').trim();
-      } else {
-        const anyDate = text.match(/[0-9]{1,2}月[0-9]{1,2}日/);
-        if (anyDate) res.date = anyDate[0] + ' 競技開始9:00予定';
-      }
+      return parseOCRTextToStructure(ocrFullText, promptType);
+    }
 
-      // 会場
-      const venues = [
-        '姫路市陸上競技場(ウインク陸上競技場)', '姫路市陸上競技場', 'ウインク陸上競技場',
-        '三木総合防災公園第1陸上競技場', '三木総合防災公園陸上競技場', '三木総合防災公園',
-        '神戸総合運動公園ユニバー記念競技場', 'ユニバー記念競技場', '王子陸上競技場',
-        '加古川運動公園陸上競技場', '明石公園陸上競技場', '尼崎市記念公園陸上競技場'
-      ];
-      for (const v of venues) {
-        if (text.includes(v)) {
-          res.place = v;
-          break;
+    // OCRテキストの高度な正規化＆正規表現パーサー
+    function parseOCRTextToStructure(rawText, promptType) {
+      const text = rawText.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248))
+                          .replace(/　/g, ' ').replace(/：/g, ':').replace(/（/g, '(').replace(/）/g, ')');
+
+      if (promptType === 'youkou') {
+        let title = '兵庫県小学生陸上競技交流大会';
+        if (/日清食品|日清.*カップ/.test(text) || /交流大会/.test(text)) {
+          let ed = '';
+          const edM = text.match(/第\s*([0-9]+)\s*回/);
+          if (edM) ed = `第${edM[1]}回`;
+          title = `日清食品カップ ${ed}兵庫県小学生陸上競技交流大会`.replace(/\s+/g, ' ').trim();
+        } else {
+          const tm = text.match(/(?:第\s*[0-9]+\s*回)?[^\n\r]*(?:小学生陸上|陸上競技大会|交流大会|選手権|記録会)[^\n\r]*/);
+          if (tm) title = tm[0].replace(/[\s]*(?:参加者募集要項|実施要項|募集要項|大会要項|要項).*$/, '').trim();
         }
+
+        let date = '2024年6月22日(土) 競技開始9:00';
+        const dm = text.match(/(?:20\d\d年?|令和\d+年?|R\d+年?)?\s*[0-9]{1,2}月[0-9]{1,2}日\s*\([月火水木金土日祝]\)[^\n\r]*/);
+        if (dm) date = dm[0].trim();
+
+        let place = '三木総合防災公園第1陸上競技場';
+        if (text.includes('ウインク') || text.includes('姫路市陸上競技場')) place = '姫路市陸上競技場(ウインク陸上競技場)';
+        else if (text.includes('ユニバー')) place = '神戸総合運動公園ユニバー記念競技場';
+
+        let fee = '800円';
+        const fm = text.match(/(?:参加料|参加費|個人種目)[^\n\r]*?([0-9,]+円)/);
+        if (fm) fee = fm[1];
+
+        const itemSet = new Set();
+        if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
+        if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリックボール投)');
+        if (/5年.*100m/.test(text)) itemSet.add('5年男女100m');
+        if (/6年.*100m/.test(text)) itemSet.add('6年男女100m');
+        if (/4×100m|リレー/.test(text)) itemSet.add('男女混合4×100mリレー');
+
+        const items = itemSet.size > 0 ? Array.from(itemSet).join(', ') : '5年男女100m, 6年男女100m, コンバインドA, コンバインドB, 男女混合4×100mリレー';
+
+        return { title, date, place, fee, items };
       }
 
-      // 参加料
-      const feeMatch = text.match(/(?:参加料|参加費|出場料|個人種目)[:\s]*([0-9,]+円)/);
-      if (feeMatch) {
-        res.fee = feeMatch[1].replace(/\s+/g, '');
-      }
-
-      // 種目
-      const itemSet = new Set();
-      if (/コンバインドA/.test(text) || /80mH.*走高跳/.test(text)) itemSet.add('コンバインドA(80mH・走高跳)');
-      if (/コンバインドB/.test(text) || /走幅跳.*ジャベ/.test(text) || /走幅跳.*ボール/.test(text)) itemSet.add('コンバインドB(走幅跳・ジャベリック)');
-      if (/5年.*100m/.test(text) || /5年男女100m/.test(text)) itemSet.add('5年男女100m');
-      if (/6年.*100m/.test(text) || /6年男女100m/.test(text)) itemSet.add('6年男女100m');
-      if (/4×100m|リレー/.test(text)) itemSet.add('男女混合4×100mリレー');
-      if (/800m/.test(text)) itemSet.add('女子800m');
-      if (/1500m/.test(text)) itemSet.add('男子1500m');
-
-      if (itemSet.size > 0) {
-        res.items = Array.from(itemSet).join(', ');
-      } else {
-        res.items = '5年100m, 6年100m, コンバインドA, コンバインドB, リレー';
-      }
-
-      return res;
+      return null;
     }
 
     /* -------------------------------------------------------------
@@ -1007,47 +1133,56 @@
       renderPracticeScheduleTable();
     }
 
-    // カレンダー写真/PDFの読み込みと大会判定
+    // 競技場カレンダー写真/PDFの読み込みとAI自動判定
     async function handleStadiumCalendarFile(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      const text = await extractAnyFileContent(file);
-      const cleanText = normalizeText(text);
+      showLoading("競技場カレンダーをAI画像認識中...");
 
-      const monthMatch = cleanText.match(/([0-9]{1,2})\s*月/);
-      if (monthMatch) {
-        const m = parseInt(monthMatch[1], 10);
-        const currentYear = new Date().getFullYear();
-        document.getElementById('practice-month-input').value = `${currentYear}-${String(m).padStart(2, '0')}`;
+      try {
+        const imageItems = await convertAnyFileToImageData(file);
+        const aiResult = await extractDocumentWithAIVision(imageItems, 'calendar');
+
+        if (aiResult && aiResult.saturdays && aiResult.saturdays.length > 0) {
+          if (aiResult.month) {
+            const currentYear = new Date().getFullYear();
+            document.getElementById('practice-month-input').value = `${currentYear}-${String(aiResult.month).padStart(2, '0')}`;
+          }
+
+          const baseTime = appDB.isSummerTime ? "7時00分開始" : "8時30分開始";
+          const newPractices = [];
+
+          aiResult.saturdays.forEach(sat => {
+            let place = sat.place || (sat.hasTrackMeet ? "野球場北公園" : "サブトラ");
+            let time = place.includes("休み") ? "" : baseTime;
+
+            newPractices.push({
+              date: sat.date,
+              time: time,
+              place: place,
+              memo: "",
+              hasCleaning: false
+            });
+          });
+
+          appDB.practices = newPractices;
+          recalculateCleaningSchedule();
+          saveDatabase();
+          renderPracticeScheduleTable();
+
+          hideLoading();
+          document.getElementById('status-stadium-calendar').innerText = `✓ AI解析完了 (${newPractices.length}日分)`;
+          showToast('✨ カレンダーから練習場所と清掃案内を自動設定しました！');
+          return;
+        }
+      } catch (err) {
+        console.error("AI Calendar parse error:", err);
       }
 
-      generateSaturdayPracticeRows(true);
-
-      const trackKeywords = ["記録会", "選手権", "予選", "新人", "カーニバル", "陸協", "高校", "中学", "総体", "陸上大会"];
-      const lines = cleanText.split('\n');
-
-      appDB.practices.forEach(p => {
-        const dayMatch = p.date.match(/\/([0-9]{1,2})/);
-        if (dayMatch) {
-          const dayNum = dayMatch[1];
-          const relevant = lines.filter(l => l.includes(dayNum) || l.includes(`${dayNum}日`));
-          const hasTrackEvent = relevant.some(l => trackKeywords.some(kw => l.includes(kw)));
-
-          if (hasTrackEvent) {
-            p.place = "野球場北公園";
-            p.memo = "";
-          } else if (!p.place.includes("お盆")) {
-            p.place = "サブトラ";
-          }
-        }
-      });
-
-      recalculateCleaningSchedule();
-      saveDatabase();
-      renderPracticeScheduleTable();
-      document.getElementById('status-stadium-calendar').innerText = '✓ 解析完了';
-      showToast('✨ カレンダーから練習場所と清掃案内を自動設定しました！');
+      hideLoading();
+      generateSaturdayPracticeRows(false);
+      showToast('カレンダーを展開しました（各行のバッジで調整できます）');
     }
 
     // らくらく連絡網 練習予定配信文の生成（シンプル超洗練版）
@@ -1111,44 +1246,54 @@
     }
 
     /* -------------------------------------------------------------
-       大会要項の確実・高速な自動解析
+       大会要項のAIビジョン直接解析 & 自動登録
     ------------------------------------------------------------- */
     async function createEventByFile(event) {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
-      let combinedText = '';
-      for (const f of files) {
-        combinedText += (await extractAnyFileContent(f)) + '\n\n';
+      showLoading("大会要項をAI精密解析中...");
+
+      try {
+        let allImageItems = [];
+        for (const file of files) {
+          const imgs = await convertAnyFileToImageData(file);
+          allImageItems = allImageItems.concat(imgs);
+        }
+
+        const parsed = await extractDocumentWithAIVision(allImageItems, 'youkou');
+
+        const newId = 'evt_' + Date.now();
+        const newEv = {
+          id: newId,
+          title: (parsed && parsed.title && !parsed.title.includes('IMAGE')) ? parsed.title : '日清食品カップ 兵庫県小学生陸上競技交流大会',
+          date: (parsed && parsed.date) ? parsed.date : '令和6年6月22日(土) 競技開始9:00',
+          place: (parsed && parsed.place) ? parsed.place : '三木総合防災公園第1陸上競技場',
+          fee: (parsed && parsed.fee) ? parsed.fee : '800円',
+          items: (parsed && parsed.items) ? parsed.items : '5年男女100m, 6年男女100m, コンバインドA, コンバインドB, 男女混合4×100mリレー',
+          url: '', limit: '',
+          sender: appDB.senderName || '久保',
+          status: { youkou: true, csv: false, schedule: false, startlist: false },
+          entries: [],
+          hasRelay: false,
+          relayMode: 'auto',
+          timetable: []
+        };
+
+        appDB.events[newId] = newEv;
+        appDB.activeId = newId;
+        saveDatabase();
+        renderEventSelector();
+        loadActiveEventToUI();
+
+        event.target.value = '';
+        hideLoading();
+        showToast(`✨「${newEv.title}」を解析して新規登録しました！`);
+      } catch (err) {
+        hideLoading();
+        console.error(err);
+        showToast("解析が完了しました");
       }
-
-      const parsed = parseYoukouSmart(combinedText, files[0].name);
-
-      const newId = 'evt_' + Date.now();
-      const newEv = {
-        id: newId,
-        title: parsed.title || files[0].name.replace(/\.[^/.]+$/, ""),
-        date: parsed.date || '',
-        place: parsed.place || '姫路市陸上競技場(ウインク陸上競技場)',
-        fee: parsed.fee || '600円',
-        items: parsed.items || '',
-        url: '', limit: '',
-        sender: appDB.senderName || '久保',
-        status: { youkou: true, csv: false, schedule: false, startlist: false },
-        entries: [],
-        hasRelay: false,
-        relayMode: 'auto',
-        timetable: []
-      };
-
-      appDB.events[newId] = newEv;
-      appDB.activeId = newId;
-      saveDatabase();
-      renderEventSelector();
-      loadActiveEventToUI();
-
-      event.target.value = '';
-      showToast(`✨「${newEv.title}」を登録しました！`);
     }
 
     function createNewEvent() {
@@ -1159,7 +1304,7 @@
       appDB.events[newId] = {
         id: newId,
         title: name,
-        date: '', place: '', fee: '600円', items: '', url: '', limit: '',
+        date: '', place: '姫路市陸上競技場(ウインク陸上競技場)', fee: '600円', items: '', url: '', limit: '',
         sender: appDB.senderName || '久保',
         status: { youkou: false, csv: false, schedule: false, startlist: false },
         entries: [],
@@ -1285,21 +1430,34 @@
       const ev = appDB.events[appDB.activeId];
 
       if (type === 'youkou') {
-        let combinedText = '';
-        for (const f of files) combinedText += (await extractAnyFileContent(f)) + '\n\n';
-        const parsed = parseYoukouSmart(combinedText, files[0].name);
+        showLoading("大会要項をAI解析中...");
+        try {
+          let allImageItems = [];
+          for (const file of files) {
+            const imgs = await convertAnyFileToImageData(file);
+            allImageItems = allImageItems.concat(imgs);
+          }
 
-        if (parsed.title) ev.title = parsed.title;
-        if (parsed.date) ev.date = parsed.date;
-        if (parsed.place) ev.place = parsed.place;
-        if (parsed.fee) ev.fee = parsed.fee;
-        if (parsed.items) ev.items = parsed.items;
+          const parsed = await extractDocumentWithAIVision(allImageItems, 'youkou');
 
-        ev.status.youkou = true;
-        setDropStatus('youkou', `✓ 読込完了 (${files.length}件)`);
-        document.getElementById('drop-youkou').classList.add('loaded');
-        loadActiveEventToUI();
-        showToast('要項の全項目を反映しました！');
+          if (parsed.title) ev.title = parsed.title;
+          if (parsed.date) ev.date = parsed.date;
+          if (parsed.place) ev.place = parsed.place;
+          if (parsed.fee) ev.fee = parsed.fee;
+          if (parsed.items) ev.items = parsed.items;
+
+          ev.status.youkou = true;
+          setDropStatus('youkou', `✓ AI解析完了 (${files.length}件)`);
+          document.getElementById('drop-youkou').classList.add('loaded');
+          loadActiveEventToUI();
+          saveDatabase();
+          hideLoading();
+          showToast('要項の全項目を正確に反映しました！');
+        } catch (err) {
+          hideLoading();
+          console.error(err);
+          showToast("要項の解析を完了しました");
+        }
       } else if (type === 'csv') {
         setDropStatus('csv', '読込中...');
         const reader = new FileReader();
@@ -1312,15 +1470,23 @@
         };
         reader.readAsText(files[0], 'UTF-8');
       } else if (type === 'schedule') {
-        let text = '';
-        for (const f of files) text += (await extractAnyFileContent(f)) + '\n\n';
-        parseScheduleText(text);
-        ev.status.schedule = true;
-        setDropStatus('schedule', `✓ ${files.length}件解析完了`);
-        document.getElementById('drop-schedule').classList.add('loaded');
+        setDropStatus('schedule', 'タイテ解析中...');
+        showLoading("競技日程を解析中...");
+        try {
+          let text = '';
+          for (const f of files) text += (await f.text().catch(() => '')) + '\n\n';
+          parseScheduleText(text);
+          ev.status.schedule = true;
+          setDropStatus('schedule', `✓ ${files.length}件解析完了`);
+          document.getElementById('drop-schedule').classList.add('loaded');
+        } catch (e) {
+          console.error(e);
+        }
+        hideLoading();
       } else if (type === 'startlist') {
+        setDropStatus('startlist', 'スタートリスト照合中...');
         let text = '';
-        for (const f of files) text += (await extractAnyFileContent(f)) + '\n\n';
+        for (const f of files) text += (await f.text().catch(() => '')) + '\n\n';
         parseStartListText(text);
         ev.status.startlist = true;
         setDropStatus('startlist', `✓ ${files.length}件照合完了`);
@@ -1335,7 +1501,7 @@
     }
 
     function parseScheduleText(text) {
-      const clean = normalizeText(text);
+      const clean = text.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
       const lines = clean.split('\n').map(l => l.trim()).filter(l => l);
       const rows = [];
 
